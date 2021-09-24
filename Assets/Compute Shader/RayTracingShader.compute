@@ -1,0 +1,101 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#pragma enable_d3d11_debug_symbols
+
+#define MAX_STEPS 100
+#define MAX_DIST 100
+#define SURF_DIST 1e-3
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+float4x4 MyCameraMatrix;
+float3 _origin;
+float3 _tl;
+float3 _bl;
+float3 _br;
+
+struct Ray
+{
+	float3 origin;
+	float3 direction;
+};
+
+Ray CreateRay(float3 origin, float3 direction)
+{
+	Ray ray;
+	ray.origin = origin;
+	ray.direction = direction;
+	return ray;
+}
+Ray CreateCameraRay(float2 uv)
+{
+    // Invert the perspective projection of the view-space position
+    float3 direction = _bl - _origin + uv.x * (_br - _bl) + uv.y * (_tl - _bl);
+	return CreateRay(_origin, direction);
+}
+
+
+
+
+float GetDist(float3 p)
+{
+	float d = length(p) - .5;
+	d = length(float2(length(p.xz) - 0.5, p.y)) - .1;
+	return d;
+}
+float Raymarch(float3 ro, float3 rd)
+{
+	float dO = 0;
+	float dS;
+	for (int i = 0; i < MAX_STEPS; i++)
+	{
+		float3 p = ro + dO * rd;
+		dS = GetDist(p);
+		dO += dS;
+		if (dS < SURF_DIST || dO > MAX_DIST)
+			break;
+	}
+                
+	return dO;
+}
+            
+float3 GetNormal(float3 p)
+{
+	float2 e = float2(1e-2, 0);
+	float3 n = GetDist(p) - float3(
+                GetDist(p - e.xyy),
+                GetDist(p - e.yxy),
+                GetDist(p - e.yyx)
+                );
+	return normalize(n);
+}
+
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID,uint gid : SV_GroupIndex)
+{
+    // TODO: insert actual code here!
+
+    uint width, height;
+    Result.GetDimensions(width, height);
+    // Transform pixel to [-1,1] range
+    float2 uv = float2(id.xy / float2(width, height));
+    // Get a ray for the UVs
+    Ray ray = CreateCameraRay(uv);
+    // Write some colors
+	float3 ro = ray.origin;
+	float3 rd = ray.direction;
+	
+	float d = Raymarch(ro, rd);
+	float4 col = 0;
+                
+	if (d < MAX_DIST)
+	{
+		float3 p = ro + rd * d;
+		float3 n = GetNormal(p);
+		col.rgb = n;
+	}
+    Result[id.xy] = col;
+}
+
