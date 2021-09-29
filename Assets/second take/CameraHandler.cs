@@ -14,13 +14,18 @@ public class CameraHandler : MonoBehaviour
     private int _kernelIndex;
     private RenderTexture _texture;
     public int monitorIndex;
+    public StereoType stereoType;
 
     void Start()
     {
         _cam = gameObject.GetComponent<Camera>();
         _kernelIndex = shader.FindKernel("CSMain");
         createRenderTexture();
-        Display.displays[monitorIndex].Activate();
+        if (!Application.isEditor)
+        {
+            Display.displays[monitorIndex].Activate();
+            _cam.targetDisplay = monitorIndex;
+        }
     }
 
     // Update is called once per frame
@@ -36,9 +41,10 @@ public class CameraHandler : MonoBehaviour
 
     private void OnPostRender()
     {
-        shader.Dispatch(_kernelIndex, (int)Math.Ceiling(_texture.width/8.0), (int)Math.Ceiling(_texture.height/8.0), 1);
-        
-        Graphics.DrawTexture;
+        shader.SetTexture(_kernelIndex, _textureOutId, _texture);
+        shader.Dispatch(_kernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
+            (int) Math.Ceiling(_texture.height / 8.0), 1);
+        Graphics.Blit(_texture,_cam.activeTexture);
     }
 
     private void createRenderTexture()
@@ -52,7 +58,13 @@ public class CameraHandler : MonoBehaviour
         _texture = new RenderTexture(_cam.pixelWidth, _cam.pixelHeight, 16);
         _texture.enableRandomWrite = true;
         _texture.Create();
-        shader.SetTexture(_kernelIndex, _textureOutId, _texture );
+        shader.SetTexture(_kernelIndex, _textureOutId, _texture);
     }
-    
+
+}
+
+public enum StereoType{
+    NO3D,
+    SIDE_BY_SIDE,
+    TOP_BOTTOM
 }
