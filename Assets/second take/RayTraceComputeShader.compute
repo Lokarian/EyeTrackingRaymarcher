@@ -1,15 +1,107 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
-
+#pragma kernel SideBySide
+#pragma enable_d3d11_debug_symbols
 
 RWTexture2D<float4> textureOut;
-int2 resolution;
+uint2 resolution;
 float4x4 viewFrustrum;
+float3 rightEyePosition;
+float3 leftEyePosition;
+float normalEpsilon = 0.001f;
+float marchEpsilon = 0.0001;
+float circleSize = 1.0f;
+int maxIterations = 5;
 
 [numthreads(8, 8, 1)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void CSMain(uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
 
-    textureOut[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+    textureOut[id.xy] = float4(id.x & id.y, (id.x & 15) / 15.0, (id.y & 15) / 15.0, 0.0);
+}
+
+float getDistance(float3 p)
+{
+    return (length(p) - circleSize);
+}
+
+float3 getSurfaceNormal(float3 p)
+{
+    return normalize(float3(
+        getDistance(p + float3(normalEpsilon, 0, 0)),
+        getDistance(p + float3(0, normalEpsilon, 0)),
+        getDistance(p + float3(0, 0, normalEpsilon))
+    ));
+}
+
+float4 CastRay(float3 origin, float3 direction)
+{
+    bool finished = false;
+    float3 marchPosition = origin;
+    float3 marchDirection = normalize(direction);
+    int iterations = 0;
+    float smallestDistance = 1000000.0f;
+    do
+    {
+        float distance = getDistance(marchPosition);
+        if (distance < marchEpsilon)
+        {
+            return float4(1.0, 0, 0, 1.0);
+            //return float4(getSurfaceNormal(marchPosition), 1.0f);
+        }
+        marchPosition += (marchDirection * distance);
+        if (smallestDistance>distance)
+        {
+            smallestDistance = distance;
+        }
+
+        if (iterations > maxIterations)
+        {
+            return float4(smallestDistance, smallestDistance, smallestDistance, 1.0);
+        }
+
+        iterations++;
+    }
+    while (!finished);
+    return float4(direction, 1.0);
+}
+
+
+float3 calculateViewRay(float2 pixelCoordinate, float isRightEye)
+{
+    return mul(viewFrustrum, float4(pixelCoordinate.x, pixelCoordinate.y, 1.0f, isRightEye)).xyz;
+}
+
+[numthreads(8, 8, 1)]
+void SideBySide(uint3 id : SV_DispatchThreadID)
+{
+    uint2 pixelCoordinate = id.xy;
+    float3 eyePosition;
+    float isRightEye;
+    if (pixelCoordinate.x < resolution.x / 2)
+    {
+        eyePosition = leftEyePosition;
+        isRightEye = 0.0f;
+    }
+    else
+    {
+        eyePosition = rightEyePosition;
+        isRightEye = 1.0f;
+    }
+    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2), pixelCoordinate.y / (float) resolution.y);
+    float3 directionRay = calculateViewRay(realtiveCoordinate, isRightEye);
+    float4 color = CastRay(eyePosition, directionRay);
+    //color = float4(normalize(directionRay), 1.0f);
+    //float angleToOrigin = acos(dot(normalize(directionRay), normalize(-eyePosition)));
+    //color = float4(angleToOrigin,angleToOrigin,angleToOrigin, 1.0);
+    
+    textureOut[id.xy] = color;
+    //if (all(pixelCoordinate < resolution))
+    //{
+    //    if (any(color.xyz != 0))
+    //        textureOut[pixelCoordinate] = float4(1.0, 1.0, 1, 1.0);
+    //    else
+    //        textureOut[id.xy] = float4(0, 0, 0, 0);
+    //}
 }
