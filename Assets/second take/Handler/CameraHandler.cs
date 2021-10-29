@@ -17,8 +17,9 @@ public class CameraHandler : MonoBehaviour
     public int monitorIndex;
     public StereoType stereoType;
     public Transform[] eyes;
-    [Range(0.0f, 10.0f)]
-    public float CircleSize=1;
+    [Range(0.0f, 10.0f)] public float CircleSize = 2;
+    [Range(0.0001f, 0.1f)] public float MarchEpsilon = 0.001f;
+    [Range(1, 1000)] public int MaxIterations = 50;
 
     //shader ids
     private static readonly int _textureOutId = Shader.PropertyToID("textureOut");
@@ -27,6 +28,8 @@ public class CameraHandler : MonoBehaviour
     private static readonly int _leftEyePositionId = Shader.PropertyToID("leftEyePosition");
     private static readonly int _resolutionId = Shader.PropertyToID("resolution");
     private static readonly int _circleSizeId = Shader.PropertyToID("circleSize");
+    private static readonly int _marchEpsilonId = Shader.PropertyToID("marchEpsilon");
+    private static readonly int _maxIterationsId = Shader.PropertyToID("maxIterations");
 
     private int _sideBySideKernelIndex;
     private int _testKernelIndex;
@@ -39,8 +42,18 @@ public class CameraHandler : MonoBehaviour
         createRenderTexture();
         if (!Application.isEditor)
         {
-            Display.displays[monitorIndex].Activate();
-            _cam.targetDisplay = monitorIndex;
+            if (monitorIndex != 0)
+            {
+                Display.displays[monitorIndex].Activate();
+                _cam.targetDisplay = monitorIndex;
+            }
+            else
+            {
+                //Camera.main = _cam;
+                Camera.main.tag = "Untagged";
+                _cam.tag = "MainCamera";
+                _cam.targetDisplay = monitorIndex;
+            }
         }
     }
 
@@ -62,6 +75,8 @@ public class CameraHandler : MonoBehaviour
         shader.SetFloats(_leftEyePositionId, VectorToArray(eyes[0].position));
         shader.SetFloats(_rightEyePositionId, VectorToArray(eyes[1].position));
         shader.SetFloat(_circleSizeId, CircleSize);
+        shader.SetFloat(_marchEpsilonId, MarchEpsilon);
+        shader.SetInt(_maxIterationsId, MaxIterations);
         switch (stereoType)
         {
             case StereoType.SIDE_BY_SIDE:

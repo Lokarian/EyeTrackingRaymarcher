@@ -9,9 +9,11 @@ float4x4 viewFrustrum;
 float3 rightEyePosition;
 float3 leftEyePosition;
 float normalEpsilon = 0.001f;
-float marchEpsilon = 0.0001;
-float circleSize = 1.0f;
-int maxIterations = 5;
+float marchEpsilon = 0.001f;
+float circleSize = 2.0f;
+int maxIterations = 500000;
+
+const float PI = 3.14159265359f;
 
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
@@ -23,16 +25,29 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
 float getDistance(float3 p)
 {
-    return (length(p) - circleSize);
+    //return (length(p) - circleSize); //circle
+    
+    //torus
+    float2 q = float2(length(p.xz) - circleSize, p.y);
+    return length(q) - circleSize / 6;
 }
 
 float3 getSurfaceNormal(float3 p)
 {
-    return normalize(float3(
-        getDistance(p + float3(normalEpsilon, 0, 0)),
-        getDistance(p + float3(0, normalEpsilon, 0)),
-        getDistance(p + float3(0, 0, normalEpsilon))
+    return normalize(getDistance(p) -
+    float3(
+        getDistance(p - float3(marchEpsilon, 0, 0)),
+        getDistance(p - float3(0, marchEpsilon, 0)),
+        getDistance(p - float3(0, 0, marchEpsilon))
     ));
+    
+    //float2 e = float2(1e-2, 0);
+    //float3 n = getDistance(p) - float3(
+    //            getDistance(p - e.xyy),
+    //            getDistance(p - e.yxy),
+    //            getDistance(p - e.yyx)
+    //            );
+    //return normalize(n);
 }
 
 float4 CastRay(float3 origin, float3 direction)
@@ -47,11 +62,11 @@ float4 CastRay(float3 origin, float3 direction)
         float distance = getDistance(marchPosition);
         if (distance < marchEpsilon)
         {
-            return float4(1.0, 0, 0, 1.0);
-            //return float4(getSurfaceNormal(marchPosition), 1.0f);
+            //return float4(1.0, 0, 0, 1.0);
+            return float4(getSurfaceNormal(marchPosition), 1.0f);
         }
         marchPosition += (marchDirection * distance);
-        if (smallestDistance>distance)
+        if (smallestDistance > distance)
         {
             smallestDistance = distance;
         }
@@ -65,6 +80,35 @@ float4 CastRay(float3 origin, float3 direction)
     }
     while (!finished);
     return float4(direction, 1.0);
+    
+    
+    //float3 marchDirection = normalize(direction);
+    //float4 colorOut = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    //float3 marchPosition = origin;
+    //float distance = 0.0f;
+    //float minDistance = 0;
+    //for (int i = 0; i <= circleSize; i++)
+    //{
+    //    minDistance += 1 / 10.0f;
+
+    //}
+    //float normalizedDistance = minDistance ;
+    //colorOut.rgb = normalizedDistance;
+    //return colorOut;
+
+    //float angleToOrigin = acos(dot(normalize(direction), normalize(-origin)));
+    //angleToOrigin = angleToOrigin / PI;
+    //float3 marchPosition = origin;
+    //float distance = 0.0f;
+    //float minDistance = 1000.0f;
+    
+    //for (int i = 0; i <= circleSize; i++)
+    //{
+    //    float distance = getDistance(origin + circleSize * normalize(direction));
+    //    minDistance = min(minDistance, distance);
+
+    //}
+    //return float4(angleToOrigin,angleToOrigin,angleToOrigin, 1.0);
 }
 
 
@@ -92,16 +136,28 @@ void SideBySide(uint3 id : SV_DispatchThreadID)
     float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2), pixelCoordinate.y / (float) resolution.y);
     float3 directionRay = calculateViewRay(realtiveCoordinate, isRightEye);
     float4 color = CastRay(eyePosition, directionRay);
-    //color = float4(normalize(directionRay), 1.0f);
-    //float angleToOrigin = acos(dot(normalize(directionRay), normalize(-eyePosition)));
-    //color = float4(angleToOrigin,angleToOrigin,angleToOrigin, 1.0);
     
     textureOut[id.xy] = color;
-    //if (all(pixelCoordinate < resolution))
-    //{
-    //    if (any(color.xyz != 0))
-    //        textureOut[pixelCoordinate] = float4(1.0, 1.0, 1, 1.0);
-    //    else
-    //        textureOut[id.xy] = float4(0, 0, 0, 0);
-    //}
+}
+[numthreads(8, 8, 1)]
+void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
+{
+    uint2 pixelCoordinate = id.xy;
+    float3 eyePosition;
+    float isRightEye;
+    if (pixelCoordinate.x < resolution.x / 2)
+    {
+        eyePosition = leftEyePosition;
+        isRightEye = 0.0f;
+    }
+    else
+    {
+        eyePosition = rightEyePosition;
+        isRightEye = 1.0f;
+    }
+    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2), pixelCoordinate.y / (float) resolution.y);
+    float3 directionRay = calculateViewRay(realtiveCoordinate, isRightEye);
+    float4 color = CastRay(eyePosition, directionRay);
+    
+    textureOut[id.xy] = color;
 }
