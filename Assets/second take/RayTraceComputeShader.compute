@@ -15,6 +15,32 @@ int maxIterations = 500000;
 
 const float PI = 3.14159265359f;
 
+const int _OR = 0;
+const int _AND = 1;
+const int _NOT = 2;
+const int _CIRCLE = 3;
+const int _TORUS = 4;
+
+struct GeneralTreeElement
+{
+    int nodeType;
+    float4x4 translation;
+    float3 color;
+    float3 a;
+    float3 b;
+};
+
+struct LinearTreeStack
+{
+    float distance;
+    float4 color;
+};
+
+LinearTreeStack stackContext[25];
+int stackPointer = 0;
+RWStructuredBuffer<GeneralTreeElement> distanceTree;
+int distanceTreeLength;
+
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
@@ -23,31 +49,96 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     textureOut[id.xy] = float4(id.x & id.y, (id.x & 15) / 15.0, (id.y & 15) / 15.0, 0.0);
 }
 
+LinearTreeStack makeLinearTreeStack(float distance, float4 color)
+{
+    LinearTreeStack element;
+    element.distance = distance;
+    element.color = color;
+    return element;
+}
+
+
+float logicalAND(float d1, float d2)
+{
+    return max(d1, d2);
+}
+
+float logicalOR(float d1, float d2)
+{
+    return min(d1, d2);
+}
+
+float getDistanceCirlce(float3 p, float r)
+{
+    return length(p) - circleSize;
+}
+
+float getDistanceTorus(float3 p, float2 r1r2)
+{
+    float2 q = float2(length(p.xz) - r1r2.x, p.y);
+    return length(q) - r1r2.y;
+}
+
 float getDistance(float3 p)
 {
-    //return (length(p) - circleSize); //circle
-    
-    //torus
-    float2 q = float2(length(p.xz) - circleSize, p.y);
-    return length(q) - circleSize / 6;
+    return getDistanceTorus(p, float2(circleSize, circleSize / 6));
 }
+
+LinearTreeStack pop()
+{
+    return stackContext[stackPointer--];
+}
+
+void push(LinearTreeStack e)
+{
+    stackContext[stackPointer++] = e;
+}
+
+LinearTreeStack evaluateNode(GeneralTreeElement element, float3 position)
+{
+    LinearTreeStack c1;
+    LinearTreeStack c2;
+    [branch] switch (element.nodeType)
+    {
+    case _AND:
+        c1 = pop();
+        c2 = pop();
+        return (makeLinearTreeStack(logicalAND(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+    case _OR:
+        c1 = pop();
+        c2 = pop();
+        return (makeLinearTreeStack(logicalAND(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+    case _CIRCLE:
+        return makeLinearTreeStack(getDistanceCirlce(mul(element.translation, float4(position, 1.0)).xyz, element.a.x),
+                                   float4(element.color, 1.0f));
+    case _TORUS:
+        return makeLinearTreeStack(getDistanceTorus(mul(element.translation, float4(position, 1.0)).xyz, element.a.xy),
+                                   float4(element.color, 1.0f));
+    default:
+        return makeLinearTreeStack(0.0f, float4(1.0f, 0.0f, 1.0f, 1.0f));
+    }
+}
+
+float getDistanceFromTree(float3 p)
+{
+    GeneralTreeElement element;
+    for(uint i= 0; i < distanceTreeLength; i++)
+    {
+        element = distanceTree[i];
+        push(evaluateNode(element, p));
+    }
+    return pop().distance;
+}
+
 
 float3 getSurfaceNormal(float3 p)
 {
     return normalize(getDistance(p) -
-    float3(
-        getDistance(p - float3(marchEpsilon, 0, 0)),
-        getDistance(p - float3(0, marchEpsilon, 0)),
-        getDistance(p - float3(0, 0, marchEpsilon))
-    ));
-    
-    //float2 e = float2(1e-2, 0);
-    //float3 n = getDistance(p) - float3(
-    //            getDistance(p - e.xyy),
-    //            getDistance(p - e.yxy),
-    //            getDistance(p - e.yyx)
-    //            );
-    //return normalize(n);
+        float3(
+            getDistance(p - float3(marchEpsilon, 0, 0)),
+            getDistance(p - float3(0, marchEpsilon, 0)),
+            getDistance(p - float3(0, 0, marchEpsilon))
+        ));
 }
 
 float4 CastRay(float3 origin, float3 direction)
@@ -80,8 +171,8 @@ float4 CastRay(float3 origin, float3 direction)
     }
     while (!finished);
     return float4(direction, 1.0);
-    
-    
+
+
     //float3 marchDirection = normalize(direction);
     //float4 colorOut = float4(1.0f, 1.0f, 1.0f, 1.0f);
     //float3 marchPosition = origin;
@@ -101,7 +192,7 @@ float4 CastRay(float3 origin, float3 direction)
     //float3 marchPosition = origin;
     //float distance = 0.0f;
     //float minDistance = 1000.0f;
-    
+
     //for (int i = 0; i <= circleSize; i++)
     //{
     //    float distance = getDistance(origin + circleSize * normalize(direction));
@@ -133,12 +224,14 @@ void SideBySide(uint3 id : SV_DispatchThreadID)
         eyePosition = rightEyePosition;
         isRightEye = 1.0f;
     }
-    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2), pixelCoordinate.y / (float) resolution.y);
+    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float)(resolution.x / 2),
+                                       pixelCoordinate.y / (float)resolution.y);
     float3 directionRay = calculateViewRay(realtiveCoordinate, isRightEye);
     float4 color = CastRay(eyePosition, directionRay);
-    
+
     textureOut[id.xy] = color;
 }
+
 [numthreads(8, 8, 1)]
 void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
 {
@@ -155,9 +248,10 @@ void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
         eyePosition = rightEyePosition;
         isRightEye = 1.0f;
     }
-    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2), pixelCoordinate.y / (float) resolution.y);
+    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float)(resolution.x / 2),
+                                       pixelCoordinate.y / (float)resolution.y);
     float3 directionRay = calculateViewRay(realtiveCoordinate, isRightEye);
     float4 color = CastRay(eyePosition, directionRay);
-    
+
     textureOut[id.xy] = color;
 }
