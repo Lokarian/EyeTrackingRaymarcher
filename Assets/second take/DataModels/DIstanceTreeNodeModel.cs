@@ -2,17 +2,38 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class DIstanceTreeNode : MonoBehaviour
+public abstract class DistanceTreeNodeModel : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
+    protected List<DistanceTreeNodeModel> children = new List<DistanceTreeNodeModel>();
+    protected DistanceTreeNodeType NodeType;
+
+    public void AddChild(DistanceTreeNodeModel child)
     {
-        
+        children.Add(child);
     }
 
-    // Update is called once per frame
-    void Update()
+    public abstract DistanceTreeLinearModel? GetLinearModel();
+
+    public void ConstructLinearTree(List<DistanceTreeLinearModel> list)
     {
-        
+        foreach (var child in children)
+        {
+            child.ConstructLinearTree(list);
+        }
+
+        var model = GetLinearModel();
+        if (model.HasValue)
+        {
+            list.Add(model.Value);
+        }
     }
+}
+
+public enum DistanceTreeNodeType
+{
+    _OR = 0,
+    _AND = 1,
+    _NOT = 2,
+    _SPHERE = 3,
+    _TORUS = 4,
 }

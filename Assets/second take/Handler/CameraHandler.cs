@@ -32,6 +32,7 @@ public class CameraHandler : MonoBehaviour
     private static readonly int _maxIterationsId = Shader.PropertyToID("maxIterations");
 
     private int _sideBySideKernelIndex;
+    private int _leftEyeKernelIndex;
     private int _testKernelIndex;
 
     void Start()
@@ -39,6 +40,7 @@ public class CameraHandler : MonoBehaviour
         _cam = gameObject.GetComponent<Camera>();
         _testKernelIndex = shader.FindKernel("CSMain");
         _sideBySideKernelIndex = shader.FindKernel("SideBySide");
+        _leftEyeKernelIndex = shader.FindKernel("LeftEyeOnly");
         createRenderTexture();
         if (!Application.isEditor)
         {
@@ -67,7 +69,6 @@ public class CameraHandler : MonoBehaviour
         }
     }
 
-
     private void OnPostRender()
     {
         updateRenderTexture();
@@ -79,6 +80,11 @@ public class CameraHandler : MonoBehaviour
         shader.SetInt(_maxIterationsId, MaxIterations);
         switch (stereoType)
         {
+            case StereoType.NO3D:
+            case StereoType.LEFT_ONLY:
+                shader.Dispatch(_leftEyeKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
+                    (int) Math.Ceiling(_texture.height / 8.0), 1);
+                break;
             case StereoType.SIDE_BY_SIDE:
                 shader.Dispatch(_sideBySideKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
                     (int) Math.Ceiling(_texture.height / 8.0), 1);
@@ -106,6 +112,11 @@ public class CameraHandler : MonoBehaviour
     {
         switch (stereoType)
         {
+            case StereoType.NO3D:
+            case StereoType.LEFT_ONLY:
+                shader.SetTexture(_leftEyeKernelIndex, _textureOutId, _texture);
+                shader.SetInts(_resolutionId, _texture.width, _texture.height);
+                break;
             case StereoType.SIDE_BY_SIDE:
                 shader.SetTexture(_sideBySideKernelIndex, _textureOutId, _texture);
                 shader.SetInts(_resolutionId, _texture.width, _texture.height);
@@ -132,7 +143,7 @@ public class CameraHandler : MonoBehaviour
         camFrust.m03 = rightEyeLeftEye.x;
         camFrust.m13 = rightEyeLeftEye.y;
         camFrust.m23 = rightEyeLeftEye.z;
-        Debug.Log(camFrust.ToString());
+        //Debug.Log(camFrust.ToString());
         return camFrust;
     }
 
