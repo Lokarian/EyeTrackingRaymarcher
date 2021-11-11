@@ -68,8 +68,11 @@ public class CameraHandler : MonoBehaviour
             createRenderTexture();
         }
     }
-
-    private void OnPostRender()
+    private void OnRenderImage(RenderTexture source, RenderTexture destination)
+    {
+        Render(destination);
+    }
+    private void Render(RenderTexture destination)
     {
         updateRenderTexture();
         shader.SetMatrix(_viewFrustrumId, cameraMatrix());
@@ -91,7 +94,7 @@ public class CameraHandler : MonoBehaviour
                 break;
         }
 
-        Graphics.Blit(_texture, _cam.activeTexture);
+        Graphics.Blit(_texture, destination);
     }
 
     private void createRenderTexture()

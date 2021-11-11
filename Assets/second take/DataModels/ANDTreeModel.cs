@@ -10,6 +10,7 @@ public class ANDTreeModel : DistanceTreeNodeModel
     void Start()
     {
         NodeType = DistanceTreeNodeType._AND;
+        DesiredChildCount = 2;
     }
     private void OnEnable()
     {
@@ -22,18 +23,11 @@ public class ANDTreeModel : DistanceTreeNodeModel
             }
         }
     }
-    public override DistanceTreeLinearModel? GetLinearModel()
+    public override DistanceTreeLinearModel GetLinearModel()
     {
-        if (children.Count == 2)
+        return new DistanceTreeLinearModel()
         {
-            return new DistanceTreeLinearModel()
-            {
-                nodeType = (int)this.NodeType
-            };
-        }
-        else
-        {
-            return null;
-        }
+            nodeType = (int)this.NodeType
+        };
     }
 }

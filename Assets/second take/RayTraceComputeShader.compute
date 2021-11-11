@@ -21,6 +21,10 @@ const int _AND = 1;
 const int _NOT = 2;
 const int _SPHERE = 3;
 const int _TORUS = 4;
+const int _SMOOTHINTERSECTS = 5;
+const int _SMOOTHUNION = 6;
+const int _SMOOTHDIFFERENCE = 7;
+const int _CUBE = 8;
 
 
 struct GeneralTreeElement
@@ -78,13 +82,37 @@ float logicalNOT(float d)
 
 float getDistanceCirlce(float3 p)
 {
-    return length(p) - 1.0f;
+    return length(p) - 0.5f;
 }
 
 float getDistanceTorus(float3 p, float2 r1r2)
 {
     float2 q = float2(length(p.xz) - r1r2.x, p.y);
     return length(q) - r1r2.y;
+}
+
+float smoothIntersectSDF(float d1, float d2, float k)
+{
+    float h = clamp(0.5 - 0.5 * (d1 - d2) / k, 0., 1.);
+    return lerp(d1, d2, h) + k * h * (1. - h);
+}
+ 
+float smoothUnionSDF(float d1, float d2, float k)
+{
+    float h = clamp(0.5 + 0.5 * (d1 - d2) / k, 0., 1.);
+    return lerp(d1, d2, h) - k * h * (1. - h);
+}
+ 
+float smoothDifferenceSDF(float d1, float d2, float k)
+{
+    float h = clamp(0.5 - 0.5 * (d2 + d1) / k, 0., 1.);
+    return lerp(d1, -d2, h) + k * h * (1. - h);
+}
+
+float getDistanceCube(float3 p)
+{
+    float3 q = abs(p) - 0.5;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
 
@@ -181,12 +209,31 @@ float getDistanceFromTreeCompact(float3 position)
         (getDistanceTorus(mul(element.translation, float4(position, 1.0)).xyz, element.a.xy),
          float4(element.color, 1.0f)));
                 break;
+            case 5: //_SMOOTHINTERSECTS
+                c1 = stackContext[--stackPointer];
+                c2 = stackContext[--stackPointer];
+                stackContext[stackPointer++] = (makeLinearTreeStack(smoothIntersectSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                break;
+            case 6: //_SMOOTHUNION
+                c1 = stackContext[--stackPointer];
+                c2 = stackContext[--stackPointer];
+                stackContext[stackPointer++] = (makeLinearTreeStack(smoothUnionSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                break;
+            case 7: //_SMOOTHDIFFERENCE
+                c1 = stackContext[--stackPointer];
+                c2 = stackContext[--stackPointer];
+                stackContext[stackPointer++] = (makeLinearTreeStack(smoothDifferenceSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                break;
+            case 8: //_CUBE
+                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCube(mul(element.translation, float4(position, 1.0)).xyz),
+         float4(element.color, 1.0f)));
+                break;
             default:
                 stackContext[stackPointer++] = (makeLinearTreeStack(0.0f, float4(1.0f, 0.0f, 1.0f, 1.0f)));
                 break;
         }
     }
-    return stackContext[stackPointer-1].distance;
+    return stackContext[stackPointer - 1].distance;
 }
 float getDistance(float3 p)
 {
@@ -226,10 +273,12 @@ float4 CastRay(float3 origin, float3 direction)
 
         if (iterations > maxIterations)
         {
-            finished=true;
-            //return float4(smallestDistance, smallestDistance, smallestDistance, 1.0);
+            return float4(1.0, 0.0, 1.0, 1.0);
         }
-
+        if (length(marchPosition) > 1000f)
+        {
+            finished = true;
+        }
         iterations++;
     }
     while (!finished);
@@ -288,8 +337,8 @@ void SideBySide(uint3 id : SV_DispatchThreadID)
         eyePosition = rightEyePosition;
         isRightEye = 1.0f;
     }
-    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float)(resolution.x / 2),
-                                       pixelCoordinate.y / (float)resolution.y);
+    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2),
+                                       pixelCoordinate.y / (float) resolution.y);
     float3 directionRay = calculateViewRay(realtiveCoordinate, isRightEye);
     float4 color = CastRay(eyePosition, directionRay);
 
@@ -300,9 +349,9 @@ void SideBySide(uint3 id : SV_DispatchThreadID)
 void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
 {
     uint2 pixelCoordinate = id.xy;
-    float2 realtiveCoordinate = float2(pixelCoordinate.x / (float)resolution.x,
-                                       pixelCoordinate.y / (float)resolution.y);
-    float3 directionRay = calculateViewRay(realtiveCoordinate,  0.0f);
+    float2 realtiveCoordinate = float2(pixelCoordinate.x / (float) resolution.x,
+                                       pixelCoordinate.y / (float) resolution.y);
+    float3 directionRay = calculateViewRay(realtiveCoordinate, 0.0f);
     float4 color = CastRay(leftEyePosition, directionRay);
 
     textureOut[id.xy] = color;

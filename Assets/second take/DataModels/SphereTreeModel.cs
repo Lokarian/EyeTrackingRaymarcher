@@ -8,24 +8,20 @@ public class SphereTreeModel : DistanceTreeNodeModel
     // Start is called before the first frame update
     void Start()
     {
+        NodeType = DistanceTreeNodeType._SPHERE;
+        DesiredChildCount = 0;
         
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
 
-    public override DistanceTreeLinearModel? GetLinearModel()
+    public override DistanceTreeLinearModel GetLinearModel()
     {
         return new DistanceTreeLinearModel()
         {
             translation = transform.worldToLocalMatrix,
             color = Vector3.right,
-            nodeType = (int)DistanceTreeNodeType._SPHERE,
+            nodeType = (int)NodeType,
             b = new Vector3(0.0f,0.0f,3.14159265359f)
-            
         };
     }
 }

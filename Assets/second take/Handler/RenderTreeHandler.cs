@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -13,6 +14,7 @@ public class RenderTreeHandler : MonoBehaviour
     static int distanceTreeLengthId = Shader.PropertyToID("distanceTreeLength");
     public List<int> KernelIndices = new List<int>() {0, 1};
     public ComputeShader computeShader;
+    private List<DistanceTreeNodeModel> linearTree = new List<DistanceTreeNodeModel>();
     public int BufferSize
     {
         get => _bufferSize;
@@ -33,12 +35,23 @@ public class RenderTreeHandler : MonoBehaviour
 
     public void UpdateLinearTree()
     {
-        var linearTree = new List<DistanceTreeLinearModel>();
-        Root.ConstructLinearTree(linearTree);
-        buffer.SetData(linearTree.ToArray());
-        computeShader.SetInt(distanceTreeLengthId,linearTree.Count);
-        Debug.Log((object)(linearTree[2].ToString()));
-        Debug.Log($"Linear Tree Length: {linearTree.Count.ToString()}");
+        var tempLinearTree = new List<DistanceTreeNodeModel>();
+        if (Root != null)
+        {
+            if (Root.LinearizeTree(tempLinearTree))
+            {
+                linearTree = tempLinearTree;
+            }
+        }
+        else
+        {
+            linearTree = new List<DistanceTreeNodeModel>();
+        }
+
+        var linearModels = linearTree.Select(a => a.GetLinearModel()).ToArray();
+        buffer.SetData(linearModels);
+        computeShader.SetInt(distanceTreeLengthId,linearModels.Length);
+        Debug.Log($"Linear Tree Length: {linearModels.Length.ToString()}");
     }
     private void UpdateBufferSize()
     {

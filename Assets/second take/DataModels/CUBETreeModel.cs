@@ -2,12 +2,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class TorusTreeModel : DistanceTreeNodeModel
+public class CUBETreeModel : DistanceTreeNodeModel
 {
-    public float radius=0.5f;
     void Start()
     {
-        NodeType = DistanceTreeNodeType._TORUS;
+        NodeType = DistanceTreeNodeType._CUBE;
         DesiredChildCount = 0;
         
     }
@@ -15,7 +14,6 @@ public class TorusTreeModel : DistanceTreeNodeModel
     {
         return new DistanceTreeLinearModel()
         {
-            a = new Vector3(1, radius, 0.0f),
             translation = transform.worldToLocalMatrix,
             color = Vector3.right,
             nodeType = (int)NodeType,

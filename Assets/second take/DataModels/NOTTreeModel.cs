@@ -8,6 +8,7 @@ public class NOTTreeModel : DistanceTreeNodeModel
     void Start()
     {
         NodeType = DistanceTreeNodeType._NOT;
+        DesiredChildCount = 1;
     }
 
     private void OnEnable()
@@ -22,23 +23,12 @@ public class NOTTreeModel : DistanceTreeNodeModel
         }
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-    }
 
-    public override DistanceTreeLinearModel? GetLinearModel()
+    public override DistanceTreeLinearModel GetLinearModel()
     {
-        if (children.Count == 1)
+        return new DistanceTreeLinearModel()
         {
-            return new DistanceTreeLinearModel()
-            {
-                nodeType = (int)NodeType
-            };
-        }
-        else
-        {
-            return null;
-        }
+            nodeType = (int)NodeType
+        };
     }
 }
