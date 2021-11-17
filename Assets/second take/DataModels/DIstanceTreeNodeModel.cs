@@ -9,6 +9,9 @@ public abstract class DistanceTreeNodeModel : MonoBehaviour
     public DistanceTreeNodeType NodeType;
     protected int DesiredChildCount;
     private Transform parent;
+    public Color color;
+
+    public Vector4 _color => color ;
 
     private void Update()
     {

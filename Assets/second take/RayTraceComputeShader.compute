@@ -13,8 +13,16 @@ float normalEpsilon = 0.001f;
 float marchEpsilon = 0.001f;
 float sphereSize = 2.0f;
 int maxIterations = 500000;
+Texture2D<float4> _Skybox;
+SamplerState sampler_Skybox;
 
-const float PI = 3.14159265359f;
+float3 lightPosition = float3(10, 10, 10);
+float3 lightColor = float3(1, 1, 1);
+float ambientFactor = 1;
+float shininess = 1;
+
+
+static const float PI = 3.14159265359f;
 
 const int _OR = 0;
 const int _AND = 1;
@@ -64,20 +72,41 @@ LinearTreeStack makeLinearTreeStack(float distance, float4 color)
     return element;
 }
 
+float4 interpolateColorsWithAlpha(float4 c1,float4 c2)
+{
+    float interpolationFactor = c1.a / (c1.a + c2.a);
+    return float4(lerp(c1.rgb, c2.rgb, interpolationFactor), max(c1.a, c2.a));
+}
 
 float logicalAND(float d1, float d2)
 {
     return max(d1, d2);
 }
 
+LinearTreeStack logicalANDWithColor(LinearTreeStack c1, LinearTreeStack c2)
+{
+    return makeLinearTreeStack(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color,c2.color));
+}
+
+
 float logicalOR(float d1, float d2)
 {
     return min(d1, d2);
 }
 
+LinearTreeStack logicalORWithColor(LinearTreeStack c1, LinearTreeStack c2)
+{
+    return makeLinearTreeStack(logicalOR(c1.distance, c2.distance), c1.distance < c2.distance ? c1.color : c2.color);
+}
+
 float logicalNOT(float d)
 {
     return -d;
+}
+
+LinearTreeStack logicalNOTWithColor(LinearTreeStack l)
+{
+    return makeLinearTreeStack(logicalNOT(l.distance), float4(l.color.rgb,0.0f));
 }
 
 float getDistanceCirlce(float3 p)
@@ -173,7 +202,7 @@ float getDistanceCube(float3 p)
 //    return pop().distance;
 //}
 
-float getDistanceFromTreeCompact(float3 position)
+LinearTreeStack getDistanceFromTreeCompact(float3 position)
 {
     LinearTreeStack stackContext[25];
     int stackPointer = 0;
@@ -189,7 +218,7 @@ float getDistanceFromTreeCompact(float3 position)
             case 0: //_OR
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = (makeLinearTreeStack(logicalOR(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                stackContext[stackPointer++] = (makeLinearTreeStack(logicalOR(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));;
                 break;
             case 1: //_AND
                 c1 = stackContext[--stackPointer];
@@ -201,13 +230,10 @@ float getDistanceFromTreeCompact(float3 position)
                 stackContext[stackPointer++] = (makeLinearTreeStack(logicalNOT(c1.distance), c1.color));
                 break;
             case 3: //_SPHERE
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCirlce(mul(element.translation, float4(position, 1.0)).xyz),
-         float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCirlce(mul(element.translation, float4(position, 1.0)).xyz), float4(element.color, 1.0f)));
                 break;
             case 4: //_TORUS
-                stackContext[stackPointer++] = (makeLinearTreeStack
-        (getDistanceTorus(mul(element.translation, float4(position, 1.0)).xyz, element.a.xy),
-         float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceTorus(mul(element.translation, float4(position, 1.0)).xyz, element.a.xy), float4(element.color, 1.0f)));
                 break;
             case 5: //_SMOOTHINTERSECTS
                 c1 = stackContext[--stackPointer];
@@ -233,11 +259,24 @@ float getDistanceFromTreeCompact(float3 position)
                 break;
         }
     }
-    return stackContext[stackPointer - 1].distance;
+    return stackContext[stackPointer - 1];
 }
 float getDistance(float3 p)
 {
+    return getDistanceFromTreeCompact(p).distance;
+}
+LinearTreeStack getDistanceAndMaterialColor(float3 p)
+{
     return getDistanceFromTreeCompact(p);
+}
+
+float3 reflectRay(float3 ray, float3 surfaceNormal)
+{
+    return ray + 2 * dot(ray, surfaceNormal) * surfaceNormal;
+}
+float getAngleBetweenNormalized(float3 ray1, float3 ray2)
+{
+    return acos(dot(ray1, ray2));
 }
 
 float3 getSurfaceNormal(float3 p)
@@ -250,20 +289,48 @@ float3 getSurfaceNormal(float3 p)
         ));
 }
 
+float3 sampleSkybox(float3 direction)
+{
+    float theta = acos(direction.y) / -PI;
+    float phi = atan2(direction.x, direction.z) / -PI * 0.5f;
+    return _Skybox.SampleLevel(sampler_Skybox, float2(phi, theta), 0);
+}
+
+float3 calculatePhongColor(float3 materialColor,float3 surfaceNormal,float3 viewDirection,float3 toLightDirection,float shininess)
+{
+    float3 colorOut;
+    
+    colorOut = materialColor.rgb * ambientFactor; //ambient
+    
+    colorOut +=  materialColor.rgb * lightColor *max(0, dot(surfaceNormal, toLightDirection)); //diffuse
+    
+    float3 halfwayVector = normalize((-viewDirection + toLightDirection) / 2);
+    
+    float dotLightAngle = dot(halfwayVector, surfaceNormal);
+    
+    //colorOut += materialColor.rgb * lightColor * max(0, ceil(dotLightAngle)) * pow(max(0, dot(surfaceNormal, dotLightAngle)), shininess); //specular
+
+    return colorOut;
+
+}
+
 float4 CastRay(float3 origin, float3 direction)
 {
     bool finished = false;
     float3 marchPosition = origin;
     float3 marchDirection = normalize(direction);
+    float distanceToLight;
     int iterations = 0;
     float smallestDistance = 1000000.0f;
     do
     {
-        float distance = getDistance(marchPosition);
+        LinearTreeStack context = getDistanceAndMaterialColor(marchPosition);
+        float distance = context.distance;
         if (distance < marchEpsilon)
         {
             //return float4(1.0, 0, 0, 1.0);
             return float4(getSurfaceNormal(marchPosition), 1.0f);
+            //return float4(calculatePhongColor(context.color.rgb, getSurfaceNormal(marchPosition), marchDirection, normalize(lightPosition - marchPosition), shininess), 1.0f);
         }
         marchPosition += (marchDirection * distance);
         if (smallestDistance > distance)
@@ -275,9 +342,10 @@ float4 CastRay(float3 origin, float3 direction)
         {
             return float4(1.0, 0.0, 1.0, 1.0);
         }
-        if (length(marchPosition) > 1000f)
+        if (length(marchPosition) > 1000.0f)
         {
-            finished = true;
+            return float4(sampleSkybox(marchDirection), 1);
+
         }
         iterations++;
     }

@@ -12,6 +12,7 @@ public class ConfigHandler : MonoBehaviour
     public Transform MonitorPrefab;
     public Transform TobiiPrefab;
     public Transform HeadPrefab;
+    public Transform Light;
     private List<Transform> _monitors = new List<Transform>();
     private TobiiHandler _tobiiHandler;
     private VRPNHandler _vrpnHandler;
@@ -34,7 +35,7 @@ public class ConfigHandler : MonoBehaviour
             throw new Exception("Could not read config");
         }
 
-        _head = Instantiate(HeadPrefab,new Vector3(0f,0f,-5f),Quaternion.identity);
+        _head = Instantiate(HeadPrefab,new Vector3(0f,2f,-5f),Quaternion.identity);
         if (conf.eyeTracking != null && conf.eyeTracking.usesVRPN)
         {
             _head.GetChild(0).localPosition = conf.eyeTracking.leftEyeOffSet;
@@ -88,6 +89,7 @@ public class ConfigHandler : MonoBehaviour
         var cam = monitor.GetChild(0).GetComponent<CameraHandler>();
         cam.monitorIndex = conf.monitorIndex;
         cam.stereoType = conf.stereoType;
+        cam.Light = Light;
         cam.eyes=new List<int>() {0, 1}.Select(a => _head.GetChild(a)).ToArray();
     }
     

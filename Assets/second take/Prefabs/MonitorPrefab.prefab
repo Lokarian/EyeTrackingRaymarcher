@@ -368,6 +368,14 @@ MonoBehaviour:
   monitorIndex: 1
   stereoType: 0
   eyes: []
+  skybox: {fileID: 2800000, guid: 5716bff128b0f044ab3920d75ea2a944, type: 3}
+  CircleSize: 2
+  MarchEpsilon: 0.001
+  MaxIterations: 500
+  Shininess: 1
+  AmbientFactor: 1
+  LightColor: {r: 1, g: 1, b: 1, a: 1}
+  Light: {fileID: 0}
 --- !u!1 &6225123463611262235
 GameObject:
   m_ObjectHideFlags: 0

@@ -4,13 +4,13 @@ using UnityEngine;
 
 public class SphereTreeModel : DistanceTreeNodeModel
 {
-    
+     
     // Start is called before the first frame update
     void Start()
     {
         NodeType = DistanceTreeNodeType._SPHERE;
         DesiredChildCount = 0;
-        
+        color= Color.green;
     }
 
 
@@ -19,9 +19,9 @@ public class SphereTreeModel : DistanceTreeNodeModel
         return new DistanceTreeLinearModel()
         {
             translation = transform.worldToLocalMatrix,
-            color = Vector3.right,
+            color = _color,
             nodeType = (int)NodeType,
-            b = new Vector3(0.0f,0.0f,3.14159265359f)
+            b = new Vector3(0.0f,transform.worldToLocalMatrix.determinant,3.14159265359f)
         };
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using Matrix4x4 = UnityEngine.Matrix4x4;
 using Vector3 = UnityEngine.Vector3;
+using Vector4 = UnityEngine.Vector4;
 
 public class CameraHandler : MonoBehaviour
 {
@@ -17,9 +18,14 @@ public class CameraHandler : MonoBehaviour
     public int monitorIndex;
     public StereoType stereoType;
     public Transform[] eyes;
+    public Texture2D skybox;
     [Range(0.0f, 10.0f)] public float CircleSize = 2;
     [Range(0.0001f, 0.1f)] public float MarchEpsilon = 0.001f;
-    [Range(1, 1000)] public int MaxIterations = 50;
+    [Range(1, 1000)] public int MaxIterations = 500;
+    [Range(0.0f, 2.0f)] public float Shininess = 1.0f;
+    [Range(0.0f, 2.0f)]public float AmbientFactor = 0.1f;
+    public Color LightColor = Color.white;
+    public Transform Light;
 
     //shader ids
     private static readonly int _textureOutId = Shader.PropertyToID("textureOut");
@@ -30,6 +36,12 @@ public class CameraHandler : MonoBehaviour
     private static readonly int _circleSizeId = Shader.PropertyToID("circleSize");
     private static readonly int _marchEpsilonId = Shader.PropertyToID("marchEpsilon");
     private static readonly int _maxIterationsId = Shader.PropertyToID("maxIterations");
+    private static readonly int _SkyboxId = Shader.PropertyToID("_Skybox");
+    
+    private static readonly int _lightPositionId = Shader.PropertyToID("lightPosition");
+    private static readonly int _lightColorId = Shader.PropertyToID("lightColor");
+    private static readonly int _ambientFactorId = Shader.PropertyToID("ambientFactor");
+    private static readonly int _shininessId = Shader.PropertyToID("shininess");
 
     private int _sideBySideKernelIndex;
     private int _leftEyeKernelIndex;
@@ -81,6 +93,11 @@ public class CameraHandler : MonoBehaviour
         shader.SetFloat(_circleSizeId, CircleSize);
         shader.SetFloat(_marchEpsilonId, MarchEpsilon);
         shader.SetInt(_maxIterationsId, MaxIterations);
+        shader.SetFloat(_ambientFactorId, AmbientFactor);
+        shader.SetFloat(_shininessId, Shininess);
+        shader.SetFloats(_lightColorId,VectorToArray((Vector4)LightColor));
+        shader.SetFloats(_lightPositionId,VectorToArray(Light.position));
+        shader.SetFloat(_marchEpsilonId, MarchEpsilon);
         switch (stereoType)
         {
             case StereoType.NO3D:
@@ -118,10 +135,12 @@ public class CameraHandler : MonoBehaviour
             case StereoType.NO3D:
             case StereoType.LEFT_ONLY:
                 shader.SetTexture(_leftEyeKernelIndex, _textureOutId, _texture);
+                shader.SetTexture(_leftEyeKernelIndex,_SkyboxId, skybox);
                 shader.SetInts(_resolutionId, _texture.width, _texture.height);
                 break;
             case StereoType.SIDE_BY_SIDE:
                 shader.SetTexture(_sideBySideKernelIndex, _textureOutId, _texture);
+                shader.SetTexture(_sideBySideKernelIndex,_SkyboxId, skybox);
                 shader.SetInts(_resolutionId, _texture.width, _texture.height);
                 break;
         }

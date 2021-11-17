@@ -9,7 +9,7 @@ public class TorusTreeModel : DistanceTreeNodeModel
     {
         NodeType = DistanceTreeNodeType._TORUS;
         DesiredChildCount = 0;
-        
+        color = Color.red;
     }
     public override DistanceTreeLinearModel GetLinearModel()
     {
@@ -17,8 +17,9 @@ public class TorusTreeModel : DistanceTreeNodeModel
         {
             a = new Vector3(1, radius, 0.0f),
             translation = transform.worldToLocalMatrix,
-            color = Vector3.right,
+            color = _color,
             nodeType = (int)NodeType,
+            b = new Vector3(0.0f,transform.worldToLocalMatrix.determinant,3.14159265359f)
         };
     }
 
