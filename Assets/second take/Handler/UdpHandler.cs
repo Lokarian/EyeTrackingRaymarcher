@@ -1,30 +1,32 @@
 using UnityEngine;
 using System.Collections;
- 
 using System;
 using System.Text;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Random = UnityEngine.Random;
 
 public class UdpHandler : MonoBehaviour
 {
     private static int localPort;
-   
+
     // prefs
-    public string IP="192.168.2.107";  // define in init
-    public int port=8080;  // define in init
+    public string IP = "192.168.2.107"; // define in init
+    public int port = 8080; // define in init
 
     public bool send = false;
+
     public bool sendOnce = false;
+
     // "connection" things
     IPEndPoint remoteEndPoint;
     UdpClient client;
     public DistanceTreeLinearModel[] distanceTree;
 
-    public UdpPackage udpPackage=new UdpPackage();
-    
+    public UdpPackage udpPackage = new UdpPackage();
+
     public void Start()
     {
         init();
@@ -32,7 +34,15 @@ public class UdpHandler : MonoBehaviour
 
     public void Update()
     {
-        if (send||sendOnce)
+        if (Input.GetKeyDown("space"))
+        {
+            sendOnce = true;
+        }
+        if (sendOnce)
+        {
+            SendUpdate();
+        }
+        if (send&&Random.value<0.05)
         {
             SendUpdate();
         }
@@ -41,9 +51,11 @@ public class UdpHandler : MonoBehaviour
     public void SendUpdate()
     {
         int sizeStruct = Marshal.SizeOf(udpPackage);
-        int sizeArray = distanceTree==null||distanceTree.Length==0?0:distanceTree.Length*Marshal.SizeOf(distanceTree[0]);
-       
-        int size =sizeStruct+sizeArray;
+        int sizeArray = distanceTree == null || distanceTree.Length == 0
+            ? 0
+            : distanceTree.Length * Marshal.SizeOf(new DistanceTreeLinearModelStd430(distanceTree[0]));
+
+        int size = sizeStruct + sizeArray;
         byte[] arr = new byte[size];
 
         IntPtr ptr = Marshal.AllocHGlobal(sizeStruct);
@@ -52,13 +64,14 @@ public class UdpHandler : MonoBehaviour
         Marshal.FreeHGlobal(ptr);
         if (sizeArray != 0)
         {
-            int distanceTreeStructLength = Marshal.SizeOf(distanceTree[0]);
+            int distanceTreeStructLength = Marshal.SizeOf(new DistanceTreeLinearModelStd430(distanceTree[0]));
             for (int i = 0; i < distanceTree.Length; i++)
             {
-                byte[] objBytes = StructureToByteArray(distanceTree[i]);
-                Array.Copy(objBytes,0,arr,sizeStruct+i*distanceTreeStructLength,distanceTreeStructLength);
-            } 
+                byte[] objBytes = StructureToByteArray(new DistanceTreeLinearModelStd430(distanceTree[i]));
+                Array.Copy(objBytes, 0, arr, sizeStruct + i * distanceTreeStructLength, distanceTreeStructLength);
+            }
         }
+
         Debug.Log(ByteArrayToString(arr));
         SendBytes(arr);
 
@@ -70,20 +83,21 @@ public class UdpHandler : MonoBehaviour
     {
         remoteEndPoint = new IPEndPoint(IPAddress.Parse(IP), port);
         client = new UdpClient();
-       
-        // status
-        print("Sending to "+IP+" : "+port);
 
+        // status
+        print("Sending to " + IP + " : " + port);
     }
+
     public static string ByteArrayToString(byte[] ba)
     {
-        return BitConverter.ToString(ba).Replace("-","");
+        return BitConverter.ToString(ba).Replace("-", "");
     }
-    byte [] StructureToByteArray(object obj)
+
+    byte[] StructureToByteArray(object obj)
     {
         int len = Marshal.SizeOf(obj);
 
-        byte [] arr = new byte[len];
+        byte[] arr = new byte[len];
 
         IntPtr ptr = Marshal.AllocHGlobal(len);
 
@@ -95,13 +109,12 @@ public class UdpHandler : MonoBehaviour
 
         return arr;
     }
- 
+
     // sendData
     private void SendBytes(byte[] data)
     {
         try
         {
- 
             // Den message zum Remote-Client senden.
             client.Send(data, data.Length, remoteEndPoint);
             //}
@@ -111,8 +124,6 @@ public class UdpHandler : MonoBehaviour
             print(err.ToString());
         }
     }
-   
-   
 }
 
 public struct UdpPackage

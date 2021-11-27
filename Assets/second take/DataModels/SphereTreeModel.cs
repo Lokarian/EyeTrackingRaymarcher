@@ -21,6 +21,7 @@ public class SphereTreeModel : DistanceTreeNodeModel
             translation = transform.worldToLocalMatrix,
             color = _color,
             nodeType = (int)NodeType,
+            a=new Vector3(0.5f,0,0),
             b = new Vector3(0.0f,transform.worldToLocalMatrix.determinant,3.14159265359f)
         };
     }
