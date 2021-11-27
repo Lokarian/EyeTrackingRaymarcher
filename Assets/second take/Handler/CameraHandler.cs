@@ -26,6 +26,7 @@ public class CameraHandler : MonoBehaviour
     [Range(0.0f, 2.0f)]public float AmbientFactor = 0.1f;
     public Color LightColor = Color.white;
     public Transform Light;
+    public UdpHandler udpHandler;
 
     //shader ids
     private static readonly int _textureOutId = Shader.PropertyToID("textureOut");
@@ -97,7 +98,15 @@ public class CameraHandler : MonoBehaviour
         shader.SetFloat(_shininessId, Shininess);
         shader.SetFloats(_lightColorId,VectorToArray((Vector4)LightColor));
         shader.SetFloats(_lightPositionId,VectorToArray(Light.position));
-        shader.SetFloat(_marchEpsilonId, MarchEpsilon);
+        udpHandler.udpPackage.cameraMatrix = cameraMatrix();
+        udpHandler.udpPackage.leftEyePos = eyes[0].position;
+        udpHandler.udpPackage.rightEyePos = eyes[1].position;
+        udpHandler.udpPackage.marchEpsilon = MarchEpsilon;
+        udpHandler.udpPackage.maxIterations = MaxIterations;
+        udpHandler.udpPackage.ambientFactor = AmbientFactor;
+        udpHandler.udpPackage.shininess = Shininess;
+        udpHandler.udpPackage.lightColor = (Vector4)LightColor;
+        udpHandler.udpPackage.lightPosition = Light.position;
         switch (stereoType)
         {
             case StereoType.NO3D:

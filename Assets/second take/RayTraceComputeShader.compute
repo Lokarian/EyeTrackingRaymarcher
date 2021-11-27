@@ -144,6 +144,12 @@ float getDistanceCube(float3 p)
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
+float getDistanceCoordinateGrid(float3 p)
+{
+    float3 q = abs(p) - 0.5;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+
 
 
 //LinearTreeStack pop()

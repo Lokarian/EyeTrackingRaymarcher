@@ -15,6 +15,7 @@ public class RenderTreeHandler : MonoBehaviour
     public List<int> KernelIndices = new List<int>() {0, 1};
     public ComputeShader computeShader;
     private List<DistanceTreeNodeModel> linearTree = new List<DistanceTreeNodeModel>();
+    public UdpHandler udpHandler;
     public int BufferSize
     {
         get => _bufferSize;
@@ -51,6 +52,8 @@ public class RenderTreeHandler : MonoBehaviour
         var linearModels = linearTree.Select(a => a.GetLinearModel()).ToArray();
         buffer.SetData(linearModels);
         computeShader.SetInt(distanceTreeLengthId,linearModels.Length);
+        udpHandler.distanceTree = linearModels;
+        udpHandler.udpPackage.distanceTreeLength = linearModels.Length;
         Debug.Log($"Linear Tree Length: {linearModels.Length.ToString()}");
     }
     private void UpdateBufferSize()

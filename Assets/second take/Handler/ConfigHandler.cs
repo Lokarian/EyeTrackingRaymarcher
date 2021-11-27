@@ -13,6 +13,7 @@ public class ConfigHandler : MonoBehaviour
     public Transform TobiiPrefab;
     public Transform HeadPrefab;
     public Transform Light;
+    public UdpHandler UdpHandler;
     private List<Transform> _monitors = new List<Transform>();
     private TobiiHandler _tobiiHandler;
     private VRPNHandler _vrpnHandler;
@@ -91,6 +92,7 @@ public class ConfigHandler : MonoBehaviour
         cam.stereoType = conf.stereoType;
         cam.Light = Light;
         cam.eyes=new List<int>() {0, 1}.Select(a => _head.GetChild(a)).ToArray();
+        cam.udpHandler = UdpHandler;
     }
     
 
