@@ -110,6 +110,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 656af2e7c309ceb459a932b4cc52d7da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  NodeType: 0
+  color: {r: 0, g: 1, b: 0, a: 0}
   radius: 0.5
 --- !u!1001 &2541950197053491409
 PrefabInstance:

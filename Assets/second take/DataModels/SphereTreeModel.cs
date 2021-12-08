@@ -10,7 +10,6 @@ public class SphereTreeModel : DistanceTreeNodeModel
     {
         NodeType = DistanceTreeNodeType._SPHERE;
         DesiredChildCount = 0;
-        color= Color.green;
     }
 
 

@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 7418901846419574402}
   - component: {fileID: 3039722649622487684}
   m_Layer: 0
-  m_Name: Cube
+  m_Name: CUBE
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -109,3 +109,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   NodeType: 0
+  color: {r: 1, g: 0, b: 0, a: 0}
+  Width: 1
+  Height: 1
+  Depth: 1

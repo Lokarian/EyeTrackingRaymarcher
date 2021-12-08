@@ -14,7 +14,6 @@ public class CUBETreeModel : DistanceTreeNodeModel
     {
         NodeType = DistanceTreeNodeType._CUBE;
         DesiredChildCount = 0;
-        color= Color.blue;
     }
     public override DistanceTreeLinearModel GetLinearModel()
     {

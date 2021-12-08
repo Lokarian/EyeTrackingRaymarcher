@@ -1,7 +1,9 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.PlayerLoop;
 
 public class MonitorHandler : MonoBehaviour
 {
@@ -9,6 +11,7 @@ public class MonitorHandler : MonoBehaviour
     private readonly Transform[] _corners= new Transform[4];
     private GameObject _plane;
     public CameraHandler cameraHandler;
+    public Boolean ResizeForTexture;
     void Start()
     {
         _plane = transform.GetChild(1).gameObject;
@@ -20,6 +23,16 @@ public class MonitorHandler : MonoBehaviour
         
     }
 
+    void Update()
+    {
+        if (ResizeForTexture)
+        {
+            ResizeForTexture = false;
+            var scale = _plane.transform.localScale;
+            var res = cameraHandler.getResolution();
+            _plane.transform.localScale = new Vector3(scale.z/res[1]*res[0], scale.y, scale.z);
+        }
+    }
     private void OnPostRender()
     {
         
@@ -40,11 +53,6 @@ public class MonitorHandler : MonoBehaviour
     public Vector3 HeightVector()
     {
         return _corners[0].position - _corners[2].position;
-    }
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 
     public MonitorConfig getConfig()

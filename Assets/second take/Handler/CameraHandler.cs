@@ -19,11 +19,14 @@ public class CameraHandler : MonoBehaviour
     public StereoType stereoType;
     public Transform[] eyes;
     public Texture2D skybox;
-    [Range(0.0f, 10.0f)] public float CircleSize = 2;
+    [Range(0.0f, 1000.0f)] public float CircleSize = 2;
     [Range(0.0001f, 0.1f)] public float MarchEpsilon = 0.001f;
-    [Range(1, 1000)] public int MaxIterations = 500;
-    [Range(0.0f, 2.0f)] public float Shininess = 1.0f;
+    [Range(1, 10000)] public int MaxIterations = 500;
+    [Range(0, 5)] public int MaxReflections = 0;
+    [Range(0.0f, 1.0f)] public float Shininess = 0.5f;
     [Range(0.0f, 2.0f)]public float AmbientFactor = 0.1f;
+    [Range(0.0f, 2.0f)]public float ShadowStartDistance = 0.1f;
+    [Range(0.0f, 100.0f)]public float SoftShadowFactor = 8;
     public Color LightColor = Color.white;
     public Transform Light;
     public UdpHandler udpHandler;
@@ -34,17 +37,21 @@ public class CameraHandler : MonoBehaviour
     private static readonly int _rightEyePositionId = Shader.PropertyToID("rightEyePosition");
     private static readonly int _leftEyePositionId = Shader.PropertyToID("leftEyePosition");
     private static readonly int _resolutionId = Shader.PropertyToID("resolution");
-    private static readonly int _circleSizeId = Shader.PropertyToID("circleSize");
+    private static readonly int _circleSizeId = Shader.PropertyToID("sphereSize");
     private static readonly int _marchEpsilonId = Shader.PropertyToID("marchEpsilon");
     private static readonly int _maxIterationsId = Shader.PropertyToID("maxIterations");
+    private static readonly int _shadowStartDistanceId = Shader.PropertyToID("shadowStartDistance");
+    private static readonly int _softShadowFactorId = Shader.PropertyToID("softShadowFactor");
     private static readonly int _SkyboxId = Shader.PropertyToID("_Skybox");
     
     private static readonly int _lightPositionId = Shader.PropertyToID("lightPosition");
     private static readonly int _lightColorId = Shader.PropertyToID("lightColor");
     private static readonly int _ambientFactorId = Shader.PropertyToID("ambientFactor");
     private static readonly int _shininessId = Shader.PropertyToID("shininess");
+    private static readonly int _maxReflectionsId = Shader.PropertyToID("maxReflections");
 
     private int _sideBySideKernelIndex;
+    private int _antiAliasingKernelIndex;
     private int _leftEyeKernelIndex;
     private int _testKernelIndex;
 
@@ -53,6 +60,7 @@ public class CameraHandler : MonoBehaviour
         _cam = gameObject.GetComponent<Camera>();
         _testKernelIndex = shader.FindKernel("CSMain");
         _sideBySideKernelIndex = shader.FindKernel("SideBySide");
+        _antiAliasingKernelIndex = shader.FindKernel("AntiAliasing");
         _leftEyeKernelIndex = shader.FindKernel("LeftEyeOnly");
         createRenderTexture();
         if (!Application.isEditor)
@@ -94,17 +102,20 @@ public class CameraHandler : MonoBehaviour
         shader.SetFloat(_circleSizeId, CircleSize);
         shader.SetFloat(_marchEpsilonId, MarchEpsilon);
         shader.SetInt(_maxIterationsId, MaxIterations);
+        shader.SetInt(_maxReflectionsId, MaxReflections);
         shader.SetFloat(_ambientFactorId, AmbientFactor);
         shader.SetFloat(_shininessId, Shininess);
+        shader.SetFloat(_softShadowFactorId, SoftShadowFactor);
+        shader.SetFloat(_shadowStartDistanceId, ShadowStartDistance);
         shader.SetFloats(_lightColorId,VectorToArray((Vector4)LightColor));
         shader.SetFloats(_lightPositionId,VectorToArray(Light.position));
-        udpHandler.udpPackage.cameraMatrix = cameraMatrix();
-        udpHandler.udpPackage.leftEyePos = eyes[0].position;
-        udpHandler.udpPackage.rightEyePos = eyes[1].position;
         udpHandler.udpPackage.marchEpsilon = MarchEpsilon;
         udpHandler.udpPackage.maxIterations = MaxIterations;
         udpHandler.udpPackage.ambientFactor = AmbientFactor;
         udpHandler.udpPackage.shininess = Shininess;
+        udpHandler.udpPackage.maxReflections = MaxReflections;
+        udpHandler.udpPackage.shadowStartDistance = ShadowStartDistance;
+        udpHandler.udpPackage.softShadowFactor = SoftShadowFactor;
         udpHandler.udpPackage.lightColor = (Vector4)LightColor;
         udpHandler.udpPackage.lightPosition = Light.position;
         switch (stereoType)
@@ -116,6 +127,10 @@ public class CameraHandler : MonoBehaviour
                 break;
             case StereoType.SIDE_BY_SIDE:
                 shader.Dispatch(_sideBySideKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
+                    (int) Math.Ceiling(_texture.height / 8.0), 1);
+                break;
+            case StereoType.ANTIALIASING:
+                shader.Dispatch(_antiAliasingKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
                     (int) Math.Ceiling(_texture.height / 8.0), 1);
                 break;
         }
@@ -152,6 +167,11 @@ public class CameraHandler : MonoBehaviour
                 shader.SetTexture(_sideBySideKernelIndex,_SkyboxId, skybox);
                 shader.SetInts(_resolutionId, _texture.width, _texture.height);
                 break;
+            case StereoType.ANTIALIASING:
+                shader.SetTexture(_antiAliasingKernelIndex, _textureOutId, _texture);
+                shader.SetTexture(_antiAliasingKernelIndex,_SkyboxId, skybox);
+                shader.SetInts(_resolutionId, _texture.width, _texture.height);
+                break;
         }
     }
 
@@ -178,6 +198,10 @@ public class CameraHandler : MonoBehaviour
         return camFrust;
     }
 
+    public int[] getResolution()
+    {
+        return new int[] { _texture.width,_texture.height};
+    }
     private float[] VectorToArray(Vector3 vecIn)
     {
         return new float[3] {vecIn.x, vecIn.y, vecIn.z};
@@ -190,5 +214,6 @@ public enum StereoType
     SIDE_BY_SIDE,
     TOP_BOTTOM,
     LEFT_ONLY,
-    RIGHT_ONLY
+    RIGHT_ONLY,
+    ANTIALIASING
 }

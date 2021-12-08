@@ -128,14 +128,14 @@ public class UdpHandler : MonoBehaviour
 
 public struct UdpPackage
 {
-    public Vector3 leftEyePos;
-    public Vector3 rightEyePos;
-    public Matrix4x4 cameraMatrix;
     public float marchEpsilon;
     public int maxIterations;
     public float ambientFactor;
     public float shininess;
+    public float shadowStartDistance;
+    public float softShadowFactor;
     public Vector3 lightColor;
     public Vector3 lightPosition;
     public int distanceTreeLength;
+    public int maxReflections;
 }

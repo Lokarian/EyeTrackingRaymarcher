@@ -2,6 +2,7 @@
 #pragma kernel CSMain
 #pragma kernel SideBySide
 #pragma kernel LeftEyeOnly
+#pragma kernel AntiAliasing
 #pragma enable_d3d11_debug_symbols
 
 RWTexture2D<float4> textureOut;
@@ -12,7 +13,10 @@ float3 leftEyePosition;
 float normalEpsilon = 0.001f;
 float marchEpsilon = 0.001f;
 float sphereSize = 2.0f;
+float softShadowFactor = 2.0f;
+float shadowStartDistance = 2.0f;
 int maxIterations = 500000;
+int maxReflections = 0;
 Texture2D<float4> _Skybox;
 SamplerState sampler_Skybox;
 
@@ -20,7 +24,6 @@ float3 lightPosition = float3(10, 10, 10);
 float3 lightColor = float3(1, 1, 1);
 float ambientFactor = 1;
 float shininess = 1;
-
 
 static const float PI = 3.14159265359f;
 
@@ -63,6 +66,12 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
     textureOut[id.xy] = float4(id.x & id.y, (id.x & 15) / 15.0, (id.y & 15) / 15.0, 0.0);
 }
+
+bool vecLessThen(float3 a, float3 b)
+{
+    return a.x * a.x + a.y * a.y + a.z * a.z < b.x * b.x + b.y * b.y + b.z * b.z;
+}
+
 
 LinearTreeStack makeLinearTreeStack(float distance, float4 color)
 {
@@ -138,9 +147,14 @@ float smoothDifferenceSDF(float d1, float d2, float k)
     return lerp(d1, -d2, h) + k * h * (1. - h);
 }
 
-float getDistanceCube(float3 p)
+LinearTreeStack logicalsmoothDifferenceWithColor(LinearTreeStack c1, LinearTreeStack c2, float k)
 {
-    float3 q = abs(p) - 0.5;
+    return makeLinearTreeStack(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color, c2.color));
+}
+
+float getDistanceCube(float3 p,float3 s)
+{
+    float3 q = abs(p) - s;
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
@@ -224,16 +238,16 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
             case 0: //_OR
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = (makeLinearTreeStack(logicalOR(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));;
+                stackContext[stackPointer++] = logicalORWithColor(c1,c2);
                 break;
             case 1: //_AND
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = (makeLinearTreeStack(logicalAND(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                stackContext[stackPointer++] = logicalANDWithColor(c1, c2);
                 break;
             case 2: //_NOT
                 c1 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = (makeLinearTreeStack(logicalNOT(c1.distance), c1.color));
+                stackContext[stackPointer++] = logicalNOTWithColor(c1);
                 break;
             case 3: //_SPHERE
                 stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCirlce(mul(element.translation, float4(position, 1.0)).xyz), float4(element.color, 1.0f)));
@@ -244,7 +258,7 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
             case 5: //_SMOOTHINTERSECTS
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = (makeLinearTreeStack(smoothIntersectSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                stackContext[stackPointer++] = logicalsmoothDifferenceWithColor(c1, c2, element.a.x);
                 break;
             case 6: //_SMOOTHUNION
                 c1 = stackContext[--stackPointer];
@@ -257,7 +271,7 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
                 stackContext[stackPointer++] = (makeLinearTreeStack(smoothDifferenceSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
                 break;
             case 8: //_CUBE
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCube(mul(element.translation, float4(position, 1.0)).xyz),
+                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCube(mul(element.translation, float4(position, 1.0)).xyz,element.a),
          float4(element.color, 1.0f)));
                 break;
             default:
@@ -278,7 +292,7 @@ LinearTreeStack getDistanceAndMaterialColor(float3 p)
 
 float3 reflectRay(float3 ray, float3 surfaceNormal)
 {
-    return ray + 2 * dot(ray, surfaceNormal) * surfaceNormal;
+    return ray - 2.0f * dot(ray, surfaceNormal) * surfaceNormal;
 }
 float getAngleBetweenNormalized(float3 ray1, float3 ray2)
 {
@@ -302,22 +316,22 @@ float3 sampleSkybox(float3 direction)
     return _Skybox.SampleLevel(sampler_Skybox, float2(phi, theta), 0);
 }
 
-float3 calculatePhongColor(float3 materialColor,float3 surfaceNormal,float3 viewDirection,float3 toLightDirection,float shininess)
+float3 calculatePhongColor(float3 materialColor,float3 surfaceNormal,float3 viewDirection,float3 toLightDirection,float illumination,float shininess)
 {
-    float3 colorOut;
-    
-    colorOut = materialColor.rgb * ambientFactor; //ambient
-    
-    colorOut +=  materialColor.rgb * lightColor *max(0, dot(surfaceNormal, toLightDirection)); //diffuse
-    
-    float3 halfwayVector = normalize((-viewDirection + toLightDirection) / 2);
-    
-    float dotLightAngle = dot(halfwayVector, surfaceNormal);
-    
-    //colorOut += materialColor.rgb * lightColor * max(0, ceil(dotLightAngle)) * pow(max(0, dot(surfaceNormal, dotLightAngle)), shininess); //specular
-
+    float3 colorOut = materialColor.rgb * ambientFactor; //ambient
+    colorOut += materialColor.rgb * lightColor * max(0.0f, dot(surfaceNormal, toLightDirection)) * illumination; //diffuse
+    float3 halfwayVector = normalize((-viewDirection + toLightDirection) / 2.0f);
+    colorOut += materialColor.rgb * lightColor * max(0.0f, ceil(dot(surfaceNormal, toLightDirection))) * pow(max(0.0f, dot(surfaceNormal, halfwayVector)), shininess) * illumination; //specular
     return colorOut;
+}
 
+float4 AddColorToHalfOfRest(float4 colorIn, float3 colorToAdd)
+{
+    float halfOfRest = (1.0f - colorIn.a) * (1.0f - shininess);
+    float3 colorOut = colorIn.rgb * colorIn.a;
+    colorOut += colorToAdd * halfOfRest;
+    float newTotal = colorIn.a + halfOfRest;
+    return float4(colorOut / newTotal, newTotal);
 }
 
 float4 CastRay(float3 origin, float3 direction)
@@ -325,9 +339,17 @@ float4 CastRay(float3 origin, float3 direction)
     bool finished = false;
     float3 marchPosition = origin;
     float3 marchDirection = normalize(direction);
+    float3 hitPoint;
+    float3 hitDirection;
+    LinearTreeStack hitContext;
+    float3 hitSurfaceNormal;
     float distanceToLight;
     int iterations = 0;
+    int reflections=0;
     float smallestDistance = 1000000.0f;
+    int marchState=0;
+    float penumbraFactor = 100000000.0f;
+    float4 colorOut = float4(0,0,0,0);
     do
     {
         LinearTreeStack context = getDistanceAndMaterialColor(marchPosition);
@@ -335,9 +357,59 @@ float4 CastRay(float3 origin, float3 direction)
         if (distance < marchEpsilon)
         {
             //return float4(1.0, 0, 0, 1.0);
-            return float4(getSurfaceNormal(marchPosition), 1.0f);
+            //return float4(getSurfaceNormal(marchPosition), 1.0f);
             //return float4(calculatePhongColor(context.color.rgb, getSurfaceNormal(marchPosition), marchDirection, normalize(lightPosition - marchPosition), shininess), 1.0f);
+            if (marchState == 0)
+            {
+                hitPoint = marchPosition;
+                hitDirection = marchDirection;
+                hitContext=context;
+                hitSurfaceNormal = getSurfaceNormal(marchPosition);
+                marchDirection = normalize(lightPosition - marchPosition);
+                marchState = 1;
+                distance = shadowStartDistance;
+
+            }
+            else
+            {
+                //return float4(length(marchPosition - hitPoint), length(marchPosition - hitPoint), length(marchPosition - hitPoint),1.0);
+                //return float4(marchDirection, 1.0);
+                float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, 0.0, shininess);
+                colorOut = AddColorToHalfOfRest(colorOut, color);
+                if (++reflections > maxReflections)
+                {
+                    return colorOut;
+                }
+                marchPosition = hitPoint;
+                marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
+                distance = marchEpsilon * 2.0f;
+                marchState = 0;
+
+            }
+            
+        }     
+        else if (marchState == 1)
+        {
+            float distanceFromHitPoint = length(lightPosition - hitPoint);
+            penumbraFactor = min(penumbraFactor, softShadowFactor * distance / distanceFromHitPoint);
+            if (distanceFromHitPoint < length(marchPosition - hitPoint))
+            {
+                float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, min(1.0f, penumbraFactor), shininess);
+                colorOut = AddColorToHalfOfRest(colorOut, color);
+                if (++reflections > maxReflections)
+                {
+                    return colorOut;
+                }
+                marchPosition = hitPoint;
+                marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
+                distance = marchEpsilon * 2.0f;
+                marchState = 0;
+            }
+            
         }
+        
+        
+        
         marchPosition += (marchDirection * distance);
         if (smallestDistance > distance)
         {
@@ -350,42 +422,12 @@ float4 CastRay(float3 origin, float3 direction)
         }
         if (length(marchPosition) > 1000.0f)
         {
-            return float4(sampleSkybox(marchDirection), 1);
-
+            return AddColorToHalfOfRest(colorOut, sampleSkybox(marchDirection));
         }
         iterations++;
     }
     while (!finished);
     return float4(direction, 1.0);
-
-
-    //float3 marchDirection = normalize(direction);
-    //float4 colorOut = float4(1.0f, 1.0f, 1.0f, 1.0f);
-    //float3 marchPosition = origin;
-    //float distance = 0.0f;
-    //float minDistance = 0;
-    //for (int i = 0; i <= sphereSize; i++)
-    //{
-    //    minDistance += 1 / 10.0f;
-
-    //}
-    //float normalizedDistance = minDistance ;
-    //colorOut.rgb = normalizedDistance;
-    //return colorOut;
-
-    //float angleToOrigin = acos(dot(normalize(direction), normalize(-origin)));
-    //angleToOrigin = angleToOrigin / PI;
-    //float3 marchPosition = origin;
-    //float distance = 0.0f;
-    //float minDistance = 1000.0f;
-
-    //for (int i = 0; i <= sphereSize; i++)
-    //{
-    //    float distance = getDistance(origin + sphereSize * normalize(direction));
-    //    minDistance = min(minDistance, distance);
-
-    //}
-    //return float4(angleToOrigin,angleToOrigin,angleToOrigin, 1.0);
 }
 
 
@@ -429,4 +471,23 @@ void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
     float4 color = CastRay(leftEyePosition, directionRay);
 
     textureOut[id.xy] = color;
+}
+
+[numthreads(8, 8, 1)]
+void AntiAliasing(uint3 id : SV_DispatchThreadID)
+{
+    float4 color;
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            uint2 pixelCoordinate = id.xy;
+            float2 realtiveCoordinate = float2((pixelCoordinate.x + 0.25f * i - 0.375f) / (float) resolution.x,
+                                       (pixelCoordinate.y + 0.25f * j - 0.375f) / (float) resolution.y);
+            float3 directionRay = calculateViewRay(realtiveCoordinate, 0.0f);
+            color += CastRay(leftEyePosition, directionRay);
+        }
+    }
+
+    textureOut[id.xy] = color/16;
 }
