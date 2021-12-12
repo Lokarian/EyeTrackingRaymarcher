@@ -367,6 +367,7 @@ float4 CastRay(float3 origin, float3 direction)
                 hitSurfaceNormal = getSurfaceNormal(marchPosition);
                 marchDirection = normalize(lightPosition - marchPosition);
                 marchState = 1;
+                penumbraFactor = 100000000.0f;
                 distance = shadowStartDistance;
 
             }
@@ -390,9 +391,9 @@ float4 CastRay(float3 origin, float3 direction)
         }     
         else if (marchState == 1)
         {
-            float distanceFromHitPoint = length(lightPosition - hitPoint);
+            float distanceFromHitPoint = length(marchPosition - hitPoint);
             penumbraFactor = min(penumbraFactor, softShadowFactor * distance / distanceFromHitPoint);
-            if (distanceFromHitPoint < length(marchPosition - hitPoint))
+            if (length(lightPosition - hitPoint) < distanceFromHitPoint)
             {
                 float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, min(1.0f, penumbraFactor), shininess);
                 colorOut = AddColorToHalfOfRest(colorOut, color);
