@@ -123,10 +123,10 @@ float getDistanceCirlce(float3 p)
     return length(p) - 0.5f;
 }
 
-float getDistanceTorus(float3 p, float2 r1r2)
+float getDistanceTorus(float3 p, float2 s)
 {
-    float2 q = float2(length(p.xz) - r1r2.x, p.y);
-    return length(q) - r1r2.y;
+    float2 q = float2(length(p.xz) - s.x, p.y);
+    return length(q) - s.y;
 }
 
 float smoothIntersectSDF(float d1, float d2, float k)
@@ -135,12 +135,14 @@ float smoothIntersectSDF(float d1, float d2, float k)
     return lerp(d1, d2, h) + k * h * (1. - h);
 }
  
-float smoothUnionSDF(float d1, float d2, float k)
+float2 smoothUnionSDF(float a, float b, float k)
 {
-    float h = clamp(0.5 + 0.5 * (d1 - d2) / k, 0., 1.);
-    return lerp(d1, d2, h) - k * h * (1. - h);
+    float h = max( k-abs(a-b), 0.0 )/k;
+    float m = h*h*0.5;
+    float s = m*k*(1.0/2.0);
+    return (a<b) ? float2(a-s,m) : float2(b-s,1.0-m);
 }
- 
+
 float smoothDifferenceSDF(float d1, float d2, float k)
 {
     float h = clamp(0.5 - 0.5 * (d2 + d1) / k, 0., 1.);
@@ -150,6 +152,11 @@ float smoothDifferenceSDF(float d1, float d2, float k)
 LinearTreeStack logicalsmoothDifferenceWithColor(LinearTreeStack c1, LinearTreeStack c2, float k)
 {
     return makeLinearTreeStack(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color, c2.color));
+}
+LinearTreeStack logicalsmoothUnionWithColor(LinearTreeStack c1, LinearTreeStack c2, float k)
+{
+    float2 smoothMin = smoothUnionSDF(c1.distance,c2.distance,k);
+    return makeLinearTreeStack(smoothMin.x, interpolateColorsWithAlpha(float4(c1.color.rgb,smoothMin.y), float4(c2.color.rgb,(1-smoothMin.y))));
 }
 
 float getDistanceCube(float3 p,float3 s)
@@ -164,7 +171,10 @@ float getDistanceCoordinateGrid(float3 p)
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
-
+float3 repeatSpace(float3 p, float3 s)
+{
+    return fmod(p+0.5*s,s)-0.5*s;
+}
 
 //LinearTreeStack pop()
 //{
@@ -225,8 +235,11 @@ float getDistanceCoordinateGrid(float3 p)
 LinearTreeStack getDistanceFromTreeCompact(float3 position)
 {
     LinearTreeStack stackContext[25];
+    float3 positionStack[25];
+    int positionPointer = 0;
     int stackPointer = 0;
     GeneralTreeElement element;
+    positionStack[positionPointer]=position;
     for (uint i = 0; i < distanceTreeLength; i++)
     {
         element = distanceTree[i];
@@ -250,10 +263,10 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
                 stackContext[stackPointer++] = logicalNOTWithColor(c1);
                 break;
             case 3: //_SPHERE
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCirlce(mul(element.translation, float4(position, 1.0)).xyz), float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCirlce(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz), float4(element.color, 1.0f)));
                 break;
             case 4: //_TORUS
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceTorus(mul(element.translation, float4(position, 1.0)).xyz, element.a.xy), float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceTorus(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz, element.a.xy), float4(element.color, 1.0f)));
                 break;
             case 5: //_SMOOTHINTERSECTS
                 c1 = stackContext[--stackPointer];
@@ -263,7 +276,7 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
             case 6: //_SMOOTHUNION
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = (makeLinearTreeStack(smoothUnionSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                stackContext[stackPointer++] =logicalsmoothUnionWithColor(c1, c2, element.a.x);
                 break;
             case 7: //_SMOOTHDIFFERENCE
                 c1 = stackContext[--stackPointer];
@@ -271,8 +284,14 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
                 stackContext[stackPointer++] = (makeLinearTreeStack(smoothDifferenceSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
                 break;
             case 8: //_CUBE
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCube(mul(element.translation, float4(position, 1.0)).xyz,element.a),
-         float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCube(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz,element.a),float4(element.color, 1.0f)));
+                break;
+            case 9: // repetition
+                float3 newPos=repeatSpace(positionStack[positionPointer],element.a);
+                positionStack[++positionPointer]=newPos;
+                break;
+            case 10: // undo space
+                positionPointer--;
                 break;
             default:
                 stackContext[stackPointer++] = (makeLinearTreeStack(0.0f, float4(1.0f, 0.0f, 1.0f, 1.0f)));
@@ -438,7 +457,7 @@ float3 calculateViewRay(float2 pixelCoordinate, float isRightEye)
 }
 
 
-[numthreads(8, 8, 1)]
+[numthreads(8, 4, 1)]
 void SideBySide(uint3 id : SV_DispatchThreadID)
 {
     uint2 pixelCoordinate = id.xy;
@@ -462,7 +481,7 @@ void SideBySide(uint3 id : SV_DispatchThreadID)
     textureOut[id.xy] = color;
 }
 
-[numthreads(8, 8, 1)]
+[numthreads(8, 4, 1)]
 void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
 {
     uint2 pixelCoordinate = id.xy;
@@ -474,7 +493,7 @@ void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
     textureOut[id.xy] = color;
 }
 
-[numthreads(8, 8, 1)]
+[numthreads(8, 4, 1)]
 void AntiAliasing(uint3 id : SV_DispatchThreadID)
 {
     float4 color;

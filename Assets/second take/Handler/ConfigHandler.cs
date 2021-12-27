@@ -67,6 +67,9 @@ public class ConfigHandler : MonoBehaviour
                 var tobiiObj = Instantiate(TobiiPrefab,anchor.position,anchor.rotation, anchor);
                 _tobiiHandler=tobiiObj.GetComponent<TobiiHandler>();
                 _tobiiHandler._eyes = new List<int>() {0, 1}.Select(a => _head.GetChild(a)).ToArray();
+                
+                var calibrationHandler=anchor.GetComponent<CalibrationHandler>();
+                calibrationHandler.Eyes = new List<int>() {0, 1}.Select(a => _head.GetChild(a)).ToArray();
             }
         }
     }

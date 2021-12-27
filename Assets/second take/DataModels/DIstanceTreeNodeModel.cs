@@ -58,7 +58,7 @@ public abstract class DistanceTreeNodeModel : MonoBehaviour
         return children.Count == DesiredChildCount;
     }
 
-    public bool LinearizeTree(List<DistanceTreeNodeModel> list)
+    public virtual bool LinearizeTree(List<DistanceTreeNodeModel> list)
     {
         if (!IsValid())
         {
@@ -74,6 +74,7 @@ public abstract class DistanceTreeNodeModel : MonoBehaviour
         list.Add(this);
         return true;
     }
+    
 }
 
 public enum DistanceTreeNodeType
@@ -87,4 +88,6 @@ public enum DistanceTreeNodeType
     _SMOOTHUNION = 6,
     _SMOOTHDIFFERENCE = 7,
     _CUBE = 8,
+    _REPETITION = 9,
+    _UNDOTRANSFORM =10,
 }

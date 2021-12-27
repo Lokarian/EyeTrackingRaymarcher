@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4703907769887647712}
+  - component: {fileID: 3953000666783057047}
   m_Layer: 0
   m_Name: TobiiAnchor
   m_TagString: Untagged
@@ -24,12 +25,28 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1666917148041024905}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: -0.6, z: -1.1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 6225123462103535952}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3953000666783057047
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1666917148041024905}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6436bcc948ca0914696bcd20debe08e7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Eyes: []
+  markerPrefab: {fileID: 0}
+  TobiiAnchor: {fileID: 0}
+  CalibrationPoint: {x: 0, y: 0, z: -0.8}
 --- !u!1 &6225123462103535953
 GameObject:
   m_ObjectHideFlags: 0
@@ -372,7 +389,7 @@ MonoBehaviour:
   skybox: {fileID: 2800000, guid: 9a4d7d2479fdf434c88ce24e1e5f822a, type: 3}
   CircleSize: 2
   MarchEpsilon: 0.001
-  MaxIterations: 1000
+  MaxIterations: 6034
   MaxReflections: 1
   Shininess: 0.598
   AmbientFactor: 0.2

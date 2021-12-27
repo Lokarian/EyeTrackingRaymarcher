@@ -123,19 +123,19 @@ public class CameraHandler : MonoBehaviour
             case StereoType.NO3D:
             case StereoType.LEFT_ONLY:
                 shader.Dispatch(_leftEyeKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
-                    (int) Math.Ceiling(_texture.height / 8.0), 1);
+                    (int) Math.Ceiling(_texture.height / 4.0), 1);
                 break;
             case StereoType.SIDE_BY_SIDE:
                 shader.Dispatch(_sideBySideKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
-                    (int) Math.Ceiling(_texture.height / 8.0), 1);
+                    (int) Math.Ceiling(_texture.height / 4.0), 1);
                 break;
             case StereoType.ANTIALIASING:
                 shader.Dispatch(_antiAliasingKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
-                    (int) Math.Ceiling(_texture.height / 8.0), 1);
+                    (int) Math.Ceiling(_texture.height / 4.0), 1);
                 break;
         }
-
         Graphics.Blit(_texture, destination);
+        Debug.Log(1/Time.deltaTime);
     }
 
     private void createRenderTexture()
