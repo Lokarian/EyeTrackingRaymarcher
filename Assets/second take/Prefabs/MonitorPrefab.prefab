@@ -384,7 +384,7 @@ MonoBehaviour:
   _monitor: {fileID: 840507181883403663}
   shader: {fileID: 7200000, guid: 1ec8ddc46b5fefa4c99be9bc706449ba, type: 3}
   monitorIndex: 1
-  stereoType: 0
+  stereoType: 3
   eyes: []
   skybox: {fileID: 2800000, guid: 9a4d7d2479fdf434c88ce24e1e5f822a, type: 3}
   CircleSize: 2
@@ -398,6 +398,9 @@ MonoBehaviour:
   LightColor: {r: 1, g: 1, b: 1, a: 1}
   Light: {fileID: 0}
   udpHandler: {fileID: 0}
+  X: -1
+  Y: -1
+  Z: -1
 --- !u!1 &6225123463611262235
 GameObject:
   m_ObjectHideFlags: 0

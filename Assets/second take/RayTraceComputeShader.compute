@@ -3,6 +3,7 @@
 #pragma kernel SideBySide
 #pragma kernel LeftEyeOnly
 #pragma kernel AntiAliasing
+#pragma kernel No3d
 #pragma enable_d3d11_debug_symbols
 
 RWTexture2D<float4> textureOut;
@@ -240,7 +241,7 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
     int stackPointer = 0;
     GeneralTreeElement element;
     positionStack[positionPointer]=position;
-    for (uint i = 0; i < distanceTreeLength; i++)
+    for (int i = 0; i < distanceTreeLength; i++)
     {
         element = distanceTree[i];
         LinearTreeStack c1;
@@ -481,6 +482,7 @@ void SideBySide(uint3 id : SV_DispatchThreadID)
     textureOut[id.xy] = color;
 }
 
+
 [numthreads(8, 4, 1)]
 void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
 {
@@ -489,8 +491,23 @@ void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
                                        pixelCoordinate.y / (float) resolution.y);
     float3 directionRay = calculateViewRay(realtiveCoordinate, 0.0f);
     float4 color = CastRay(leftEyePosition, directionRay);
-
-    textureOut[id.xy] = color;
+    if(all(pixelCoordinate<resolution))
+    {
+        textureOut[id.xy] = color;        
+    }
+}
+[numthreads(8, 4, 1)]
+void No3d(uint3 id : SV_DispatchThreadID)
+{
+    uint2 pixelCoordinate = id.xy;
+    float2 realtiveCoordinate = float2(pixelCoordinate.x / (float) resolution.x,
+                                       pixelCoordinate.y / (float) resolution.y);
+    float3 directionRay = calculateViewRay(realtiveCoordinate, 0.0f);
+    float4 color = CastRay(leftEyePosition, directionRay);
+    if(all(pixelCoordinate<resolution))
+    {
+        textureOut[id.xy] = color;        
+    }
 }
 
 [numthreads(8, 4, 1)]

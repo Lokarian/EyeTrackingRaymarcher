@@ -30,7 +30,9 @@ public class CameraHandler : MonoBehaviour
     public Color LightColor = Color.white;
     public Transform Light;
     public UdpHandler udpHandler;
-
+    [Range(-1.0f, 1.0f)] public float X = -1.0f;
+    [Range(-1.0f, 1.0f)] public float Y = -1.0f;
+    [Range(-1.0f, 1.0f)] public float Z = -1.0f;
     //shader ids
     private static readonly int _textureOutId = Shader.PropertyToID("textureOut");
     private static readonly int _viewFrustrumId = Shader.PropertyToID("viewFrustrum");
@@ -53,6 +55,7 @@ public class CameraHandler : MonoBehaviour
     private int _sideBySideKernelIndex;
     private int _antiAliasingKernelIndex;
     private int _leftEyeKernelIndex;
+    private int _no3dKernelIndex;
     private int _testKernelIndex;
 
     void Start()
@@ -62,6 +65,7 @@ public class CameraHandler : MonoBehaviour
         _sideBySideKernelIndex = shader.FindKernel("SideBySide");
         _antiAliasingKernelIndex = shader.FindKernel("AntiAliasing");
         _leftEyeKernelIndex = shader.FindKernel("LeftEyeOnly");
+        _no3dKernelIndex = shader.FindKernel("No3d");
         createRenderTexture();
         if (!Application.isEditor)
         {
@@ -96,7 +100,14 @@ public class CameraHandler : MonoBehaviour
     private void Render(RenderTexture destination)
     {
         updateRenderTexture();
-        shader.SetMatrix(_viewFrustrumId, cameraMatrix());
+        if (stereoType == StereoType.NO3D)
+        {
+            shader.SetMatrix(_viewFrustrumId, _cam.cameraToWorldMatrix);
+        }
+        else
+        {
+            shader.SetMatrix(_viewFrustrumId, cameraMatrix());
+        }
         shader.SetFloats(_leftEyePositionId, VectorToArray(eyes[0].position));
         shader.SetFloats(_rightEyePositionId, VectorToArray(eyes[1].position));
         shader.SetFloat(_circleSizeId, CircleSize);
@@ -121,6 +132,9 @@ public class CameraHandler : MonoBehaviour
         switch (stereoType)
         {
             case StereoType.NO3D:
+                shader.Dispatch(_no3dKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
+                    (int) Math.Ceiling(_texture.height / 4.0), 1);
+                break;
             case StereoType.LEFT_ONLY:
                 shader.Dispatch(_leftEyeKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
                     (int) Math.Ceiling(_texture.height / 4.0), 1);
@@ -157,6 +171,10 @@ public class CameraHandler : MonoBehaviour
         switch (stereoType)
         {
             case StereoType.NO3D:
+                shader.SetTexture(_no3dKernelIndex, _textureOutId, _texture);
+                shader.SetTexture(_no3dKernelIndex,_SkyboxId, skybox);
+                shader.SetInts(_resolutionId, _texture.width, _texture.height);
+                break;
             case StereoType.LEFT_ONLY:
                 shader.SetTexture(_leftEyeKernelIndex, _textureOutId, _texture);
                 shader.SetTexture(_leftEyeKernelIndex,_SkyboxId, skybox);
