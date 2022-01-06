@@ -74,7 +74,6 @@ public abstract class DistanceTreeNodeModel : MonoBehaviour
         list.Add(this);
         return true;
     }
-    
 }
 
 public enum DistanceTreeNodeType

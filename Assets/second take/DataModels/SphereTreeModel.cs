@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -21,7 +22,7 @@ public class SphereTreeModel : DistanceTreeNodeModel
             color = _color,
             nodeType = (int)NodeType,
             a=new Vector3(0.5f,0,0),
-            b = new Vector3(0.0f,transform.worldToLocalMatrix.determinant,3.14159265359f)
+            b = new Vector3((float)Math.Pow(transform.worldToLocalMatrix.determinant, (double) 1 / 3),0.0f,0.0f)
         };
     }
 }

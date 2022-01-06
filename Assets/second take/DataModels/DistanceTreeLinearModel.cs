@@ -8,7 +8,7 @@ public struct DistanceTreeLinearModel
 {
     public int nodeType;
     public Matrix4x4 translation;
-    public Vector3 color;
+    public Vector4 color;
     public Vector3 a;
     public Vector3 b;
 
@@ -23,8 +23,7 @@ public struct DistanceTreeLinearModelStd430
     public int nodeType;
     public Vector3 padding1;
     public Matrix4x4 translation;
-    public Vector3 color;
-    public float padding2;
+    public Vector4 color;
     public Vector3 a;
     public float padding3;
     public Vector3 b;
@@ -38,7 +37,6 @@ public struct DistanceTreeLinearModelStd430
         a = model.a;
         b = model.b;
         padding1 = new Vector3(0, 0, 0);
-        padding2 = 0;
         padding3 = 0;
         padding4 = 0;
     }

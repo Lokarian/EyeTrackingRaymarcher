@@ -5,6 +5,7 @@ using System.Numerics;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Matrix4x4 = UnityEngine.Matrix4x4;
+using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
 using Vector4 = UnityEngine.Vector4;
 
@@ -33,6 +34,8 @@ public class CameraHandler : MonoBehaviour
     [Range(-1.0f, 1.0f)] public float X = -1.0f;
     [Range(-1.0f, 1.0f)] public float Y = -1.0f;
     [Range(-1.0f, 1.0f)] public float Z = -1.0f;
+    [Range(0.0f, 1.0f)] public float Resolution = 1.0f;
+    
     //shader ids
     private static readonly int _textureOutId = Shader.PropertyToID("textureOut");
     private static readonly int _viewFrustrumId = Shader.PropertyToID("viewFrustrum");
@@ -57,7 +60,7 @@ public class CameraHandler : MonoBehaviour
     private int _leftEyeKernelIndex;
     private int _no3dKernelIndex;
     private int _testKernelIndex;
-
+    
     void Start()
     {
         _cam = gameObject.GetComponent<Camera>();
@@ -114,6 +117,7 @@ public class CameraHandler : MonoBehaviour
         shader.SetFloat(_marchEpsilonId, MarchEpsilon);
         shader.SetInt(_maxIterationsId, MaxIterations);
         shader.SetInt(_maxReflectionsId, MaxReflections);
+        shader.SetInts(_resolutionId, new int[]{(int)Math.Ceiling(_texture.width*Resolution),(int)Math.Ceiling(_texture.height*Resolution)});
         shader.SetFloat(_ambientFactorId, AmbientFactor);
         shader.SetFloat(_shininessId, Shininess);
         shader.SetFloat(_softShadowFactorId, SoftShadowFactor);
@@ -132,24 +136,23 @@ public class CameraHandler : MonoBehaviour
         switch (stereoType)
         {
             case StereoType.NO3D:
-                shader.Dispatch(_no3dKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
-                    (int) Math.Ceiling(_texture.height / 4.0), 1);
+                shader.Dispatch(_no3dKernelIndex, (int) Math.Ceiling(_texture.width*Resolution / 8.0),
+                    (int) Math.Ceiling(_texture.height*Resolution / 4.0), 1);
                 break;
             case StereoType.LEFT_ONLY:
-                shader.Dispatch(_leftEyeKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
-                    (int) Math.Ceiling(_texture.height / 4.0), 1);
+                shader.Dispatch(_leftEyeKernelIndex, (int) Math.Ceiling(_texture.width*Resolution / 8.0),
+                    (int) Math.Ceiling(_texture.height*Resolution / 4.0), 1);
                 break;
             case StereoType.SIDE_BY_SIDE:
-                shader.Dispatch(_sideBySideKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
-                    (int) Math.Ceiling(_texture.height / 4.0), 1);
+                shader.Dispatch(_sideBySideKernelIndex, (int) Math.Ceiling(_texture.width*Resolution / 8.0),
+                    (int) Math.Ceiling(_texture.height*Resolution / 4.0), 1);
                 break;
             case StereoType.ANTIALIASING:
-                shader.Dispatch(_antiAliasingKernelIndex, (int) Math.Ceiling(_texture.width / 8.0),
-                    (int) Math.Ceiling(_texture.height / 4.0), 1);
+                shader.Dispatch(_antiAliasingKernelIndex, (int) Math.Ceiling(_texture.width*Resolution / 8.0),
+                    (int) Math.Ceiling(_texture.height*Resolution / 4.0), 1);
                 break;
         }
-        Graphics.Blit(_texture, destination);
-        Debug.Log(1/Time.deltaTime);
+        Graphics.Blit(_texture, destination,new Vector2(Resolution,Resolution),new Vector2(0,0));
     }
 
     private void createRenderTexture()

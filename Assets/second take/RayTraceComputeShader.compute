@@ -43,19 +43,19 @@ struct GeneralTreeElement
 {
     int nodeType;
     float4x4 translation;
-    float3 color;
+    float4 color;
     float3 a;
     float3 b;
 };
 
-struct LinearTreeStack
+struct LinearStackElement
 {
     float distance;
     float4 color;
 };
 
-//RWStructuredBuffer<LinearTreeStack> stackContext;
-//LinearTreeStack stackContext[25];
+//RWStructuredBuffer<LinearStackElement> stackContext;
+//LinearStackElement stackContext[25];
 //int stackPointer = 0;
 StructuredBuffer<GeneralTreeElement> distanceTree;
 int distanceTreeLength;
@@ -74,9 +74,9 @@ bool vecLessThen(float3 a, float3 b)
 }
 
 
-LinearTreeStack makeLinearTreeStack(float distance, float4 color)
+LinearStackElement makeLinearStackElement(float distance, float4 color)
 {
-    LinearTreeStack element;
+    LinearStackElement element;
     element.distance = distance;
     element.color = color;
     return element;
@@ -93,9 +93,9 @@ float logicalAND(float d1, float d2)
     return max(d1, d2);
 }
 
-LinearTreeStack logicalANDWithColor(LinearTreeStack c1, LinearTreeStack c2)
+LinearStackElement logicalANDWithColor(LinearStackElement c1, LinearStackElement c2)
 {
-    return makeLinearTreeStack(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color,c2.color));
+    return makeLinearStackElement(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color,c2.color));
 }
 
 
@@ -104,9 +104,9 @@ float logicalOR(float d1, float d2)
     return min(d1, d2);
 }
 
-LinearTreeStack logicalORWithColor(LinearTreeStack c1, LinearTreeStack c2)
+LinearStackElement logicalORWithColor(LinearStackElement c1, LinearStackElement c2)
 {
-    return makeLinearTreeStack(logicalOR(c1.distance, c2.distance), c1.distance < c2.distance ? c1.color : c2.color);
+    return makeLinearStackElement(logicalOR(c1.distance, c2.distance), c1.distance < c2.distance ? c1.color : c2.color);
 }
 
 float logicalNOT(float d)
@@ -114,9 +114,9 @@ float logicalNOT(float d)
     return -d;
 }
 
-LinearTreeStack logicalNOTWithColor(LinearTreeStack l)
+LinearStackElement logicalNOTWithColor(LinearStackElement l)
 {
-    return makeLinearTreeStack(logicalNOT(l.distance), float4(l.color.rgb,0.0f));
+    return makeLinearStackElement(logicalNOT(l.distance), float4(l.color.rgb,0.0f));
 }
 
 float getDistanceCirlce(float3 p)
@@ -150,14 +150,14 @@ float smoothDifferenceSDF(float d1, float d2, float k)
     return lerp(d1, -d2, h) + k * h * (1. - h);
 }
 
-LinearTreeStack logicalsmoothDifferenceWithColor(LinearTreeStack c1, LinearTreeStack c2, float k)
+LinearStackElement logicalsmoothDifferenceWithColor(LinearStackElement c1, LinearStackElement c2, float k)
 {
-    return makeLinearTreeStack(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color, c2.color));
+    return makeLinearStackElement(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color, c2.color));
 }
-LinearTreeStack logicalsmoothUnionWithColor(LinearTreeStack c1, LinearTreeStack c2, float k)
+LinearStackElement logicalsmoothUnionWithColor(LinearStackElement c1, LinearStackElement c2, float k)
 {
     float2 smoothMin = smoothUnionSDF(c1.distance,c2.distance,k);
-    return makeLinearTreeStack(smoothMin.x, interpolateColorsWithAlpha(float4(c1.color.rgb,smoothMin.y), float4(c2.color.rgb,(1-smoothMin.y))));
+    return makeLinearStackElement(smoothMin.x, interpolateColorsWithAlpha(float4(c1.color.rgb,smoothMin.y), float4(c2.color.rgb,(1-smoothMin.y))));
 }
 
 float getDistanceCube(float3 p,float3 s)
@@ -174,78 +174,21 @@ float getDistanceCoordinateGrid(float3 p)
 
 float3 repeatSpace(float3 p, float3 s)
 {
-    return fmod(p+0.5*s,s)-0.5*s;
+    return (p+s)%(2*s)-sign(p+s)*s;
 }
 
-//LinearTreeStack pop()
-//{
-//    return stackContext[stackPointer--];
-//}
-
-//void push(LinearTreeStack e)
-//{
-//    stackContext[stackPointer++] = e;
-//}
-
-//LinearTreeStack evaluateNode(GeneralTreeElement element, float3 position)
-//{
-//    LinearTreeStack c1;
-//    LinearTreeStack c2;
-//    LinearTreeStack ret;
-//    [branch]
-//    switch (element.nodeType)
-//    {
-//    case 0: //_OR
-//        c1 = pop();
-//        c2 = pop();
-//        ret = (makeLinearTreeStack(logicalAND(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));
-//        break;
-//    case 1: //_AND
-//        c1 = pop();
-//        c2 = pop();
-//        ret = (makeLinearTreeStack(logicalAND(c1.distance, c2.distance), float4(1.0f, 0.0f, 0.0f, 1.0f)));
-//        break;
-//    case 3: //_SPHERE
-//        ret = makeLinearTreeStack
-//        (getDistanceCirlce(mul(element.translation, float4(position, 1.0)).xyz, element.a.x),
-//         float4(element.color, 1.0f));
-//        break;
-//    case 4: //_TORUS
-//        ret = makeLinearTreeStack
-//        (getDistanceTorus(mul(element.translation, float4(position, 1.0)).xyz, element.a.xy),
-//         float4(element.color, 1.0f));
-//        break;
-//    default:
-//        ret = makeLinearTreeStack(0.0f, float4(1.0f, 0.0f, 1.0f, 1.0f));
-//        break;
-//    }
-//    return ret;
-//}
-
-//float getDistanceFromTree(float3 p)
-//{
-//    GeneralTreeElement element;
-//    for (uint i = 0; i < 3; i++)
-//    {
-//        element = distanceTree[i];
-//        push(evaluateNode(element, p));
-//    }
-//    return pop().distance;
-//}
-
-LinearTreeStack getDistanceFromTreeCompact(float3 position)
+LinearStackElement getDistanceFromTreeCompact(float3 position)
 {
-    LinearTreeStack stackContext[25];
+    LinearStackElement stackContext[25];
     float3 positionStack[25];
     int positionPointer = 0;
     int stackPointer = 0;
-    GeneralTreeElement element;
     positionStack[positionPointer]=position;
     for (int i = 0; i < distanceTreeLength; i++)
     {
-        element = distanceTree[i];
-        LinearTreeStack c1;
-        LinearTreeStack c2;
+        const GeneralTreeElement element = distanceTree[i];
+        LinearStackElement c1;
+        LinearStackElement c2;
         [branch]
         switch (element.nodeType)
         {
@@ -264,10 +207,10 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
                 stackContext[stackPointer++] = logicalNOTWithColor(c1);
                 break;
             case 3: //_SPHERE
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCirlce(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz), float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = makeLinearStackElement(getDistanceCirlce(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz)/element.b.x, element.color);
                 break;
             case 4: //_TORUS
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceTorus(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz, element.a.xy), float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = makeLinearStackElement(getDistanceTorus(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz, element.a.xy)/element.b.x, element.color);
                 break;
             case 5: //_SMOOTHINTERSECTS
                 c1 = stackContext[--stackPointer];
@@ -282,10 +225,10 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
             case 7: //_SMOOTHDIFFERENCE
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = (makeLinearTreeStack(smoothDifferenceSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f)));
+                stackContext[stackPointer++] = makeLinearStackElement(smoothDifferenceSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f));
                 break;
             case 8: //_CUBE
-                stackContext[stackPointer++] = (makeLinearTreeStack(getDistanceCube(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz,element.a),float4(element.color, 1.0f)));
+                stackContext[stackPointer++] = makeLinearStackElement(getDistanceCube(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz,element.a)/element.b.x,element.color);
                 break;
             case 9: // repetition
                 float3 newPos=repeatSpace(positionStack[positionPointer],element.a);
@@ -295,7 +238,7 @@ LinearTreeStack getDistanceFromTreeCompact(float3 position)
                 positionPointer--;
                 break;
             default:
-                stackContext[stackPointer++] = (makeLinearTreeStack(0.0f, float4(1.0f, 0.0f, 1.0f, 1.0f)));
+                stackContext[stackPointer++] = (makeLinearStackElement(0.0f, float4(1.0f, 0.0f, 1.0f, 1.0f)));
                 break;
         }
     }
@@ -305,7 +248,7 @@ float getDistance(float3 p)
 {
     return getDistanceFromTreeCompact(p).distance;
 }
-LinearTreeStack getDistanceAndMaterialColor(float3 p)
+LinearStackElement getDistanceAndMaterialColor(float3 p)
 {
     return getDistanceFromTreeCompact(p);
 }
@@ -356,14 +299,12 @@ float4 AddColorToHalfOfRest(float4 colorIn, float3 colorToAdd)
 
 float4 CastRay(float3 origin, float3 direction)
 {
-    bool finished = false;
     float3 marchPosition = origin;
     float3 marchDirection = normalize(direction);
     float3 hitPoint;
     float3 hitDirection;
-    LinearTreeStack hitContext;
+    LinearStackElement hitContext;
     float3 hitSurfaceNormal;
-    float distanceToLight;
     int iterations = 0;
     int reflections=0;
     float smallestDistance = 1000000.0f;
@@ -372,13 +313,10 @@ float4 CastRay(float3 origin, float3 direction)
     float4 colorOut = float4(0,0,0,0);
     do
     {
-        LinearTreeStack context = getDistanceAndMaterialColor(marchPosition);
+        LinearStackElement context = getDistanceAndMaterialColor(marchPosition);
         float distance = context.distance;
         if (distance < marchEpsilon)
         {
-            //return float4(1.0, 0, 0, 1.0);
-            //return float4(getSurfaceNormal(marchPosition), 1.0f);
-            //return float4(calculatePhongColor(context.color.rgb, getSurfaceNormal(marchPosition), marchDirection, normalize(lightPosition - marchPosition), shininess), 1.0f);
             if (marchState == 0)
             {
                 hitPoint = marchPosition;
@@ -393,9 +331,7 @@ float4 CastRay(float3 origin, float3 direction)
             }
             else
             {
-                //return float4(length(marchPosition - hitPoint), length(marchPosition - hitPoint), length(marchPosition - hitPoint),1.0);
-                //return float4(marchDirection, 1.0);
-                float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, 0.0, shininess);
+                const float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, 0.0, shininess);
                 colorOut = AddColorToHalfOfRest(colorOut, color);
                 if (++reflections > maxReflections)
                 {
@@ -405,17 +341,16 @@ float4 CastRay(float3 origin, float3 direction)
                 marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
                 distance = marchEpsilon * 2.0f;
                 marchState = 0;
-
             }
             
         }     
         else if (marchState == 1)
         {
-            float distanceFromHitPoint = length(marchPosition - hitPoint);
+            const float distanceFromHitPoint = length(marchPosition - hitPoint);
             penumbraFactor = min(penumbraFactor, softShadowFactor * distance / distanceFromHitPoint);
             if (length(lightPosition - hitPoint) < distanceFromHitPoint)
             {
-                float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, min(1.0f, penumbraFactor), shininess);
+                const float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, min(1.0f, penumbraFactor), shininess);
                 colorOut = AddColorToHalfOfRest(colorOut, color);
                 if (++reflections > maxReflections)
                 {
@@ -426,17 +361,12 @@ float4 CastRay(float3 origin, float3 direction)
                 distance = marchEpsilon * 2.0f;
                 marchState = 0;
             }
-            
         }
-        
-        
-        
         marchPosition += (marchDirection * distance);
         if (smallestDistance > distance)
         {
             smallestDistance = distance;
         }
-
         if (iterations > maxIterations)
         {
             return float4(1.0, 0.0, 1.0, 1.0);
@@ -447,11 +377,73 @@ float4 CastRay(float3 origin, float3 direction)
         }
         iterations++;
     }
-    while (!finished);
+    while (true);
     return float4(direction, 1.0);
 }
+float DoLighting(float3 origin)
+{
+    float3 marchPosition = origin;
+    float3 direction = getDistanceAndMaterialColor(marchPosition).distance;
+    for(int i=0; i<maxIterations;i++)
+    {
+        float distance =getDistance(marchPosition);
+        if(length(lightPosition-origin)<length(marchPosition-origin))
+        {
+            return 1;
+        }
+        if(distance<marchEpsilon)
+        {
+            return 0;
+        }
+        marchPosition+=direction*distance;
+    }
+    return 0.0f;
+}
 
-
+struct positionAndColor
+{
+    float4 color;
+    float3 position;
+};
+positionAndColor CastRay2(float3 origin, float3 direction)
+{
+    float3 marchPosition = origin;
+    for(int i=0; i<maxIterations;i++)
+    {
+        LinearStackElement context = getDistanceAndMaterialColor(marchPosition);
+        if(context.distance<marchEpsilon)
+        {
+            float lightLevel=DoLighting(marchPosition);
+            float3 color = calculatePhongColor(context.color.rgb, getSurfaceNormal(marchPosition), direction, lightPosition-marchPosition, lightLevel, shininess);
+            positionAndColor outs;
+            outs.color=float4(context.color.rgb,1.0);
+            outs.position=marchPosition;
+            return outs;
+            
+        }
+        marchPosition+=context.distance*direction;
+    }
+    positionAndColor outs;
+    outs.color=float4(1,0,1,1.0);
+    outs.position=marchPosition;
+    return outs;
+}
+float4 CastRay2WithReflection(float3 origin, float3 direction,int reflections)
+{
+    float rayOrig=origin;
+    float rayDir=direction;
+    float4 colorOut = float4(0,0,0,0);
+    for(int i=0;i<=reflections;i++)
+    {
+        positionAndColor tes = CastRay2(rayOrig,rayDir);
+        return tes.color;
+        colorOut=AddColorToHalfOfRest(colorOut,tes.color);
+        rayOrig=tes.position;
+        rayDir= reflect(rayDir,getSurfaceNormal(rayOrig));
+        
+    }
+    return colorOut;
+}
 float3 calculateViewRay(float2 pixelCoordinate, float isRightEye)
 {
     return mul(viewFrustrum, float4(pixelCoordinate.x, pixelCoordinate.y, 1.0f, isRightEye)).xyz;
@@ -474,11 +466,10 @@ void SideBySide(uint3 id : SV_DispatchThreadID)
         eyePosition = rightEyePosition;
         isRightEye = 1.0f;
     }
-    float2 realtiveCoordinate = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2),
+    float2 uv = float2(pixelCoordinate.x % (resolution.x / 2) / (float) (resolution.x / 2),
                                        pixelCoordinate.y / (float) resolution.y);
-    float3 directionRay = calculateViewRay(realtiveCoordinate, isRightEye);
-    float4 color = CastRay(eyePosition, directionRay);
-
+    const float3 directionRay = mul(viewFrustrum, float4(uv.x, uv.y, 1.0f, isRightEye)).xyz;
+    const float4 color = CastRay(eyePosition, directionRay);
     textureOut[id.xy] = color;
 }
 
@@ -499,7 +490,7 @@ void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
 [numthreads(8, 4, 1)]
 void No3d(uint3 id : SV_DispatchThreadID)
 {
-    uint2 pixelCoordinate = id.xy;
+    /*uint2 pixelCoordinate = id.xy;
     float2 realtiveCoordinate = float2(pixelCoordinate.x / (float) resolution.x,
                                        pixelCoordinate.y / (float) resolution.y);
     float3 directionRay = calculateViewRay(realtiveCoordinate, 0.0f);
@@ -507,6 +498,20 @@ void No3d(uint3 id : SV_DispatchThreadID)
     if(all(pixelCoordinate<resolution))
     {
         textureOut[id.xy] = color;        
+    }*/
+    uint2 pixelCoordinate = id.xy;
+    float2 uv = float2(pixelCoordinate.x / (float) resolution.x,
+                                       pixelCoordinate.y / (float) resolution.y);
+    float2 range=float2(-10,10);
+    float xValue= (uv.x-0.5f)*20.0f;
+    float yValue=fmod(xValue,2.0f);
+    
+    float isPixel=(yValue-range.x)/(range.y-range.x);
+    if(uv.y>isPixel){
+        textureOut[id.xy] = float4(1,1,1,1.0);
+    }
+    else{
+        textureOut[id.xy] = float4(0,0,0,0.0);
     }
 }
 
