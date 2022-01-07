@@ -14,6 +14,7 @@ public class ConfigHandler : MonoBehaviour
     public Transform HeadPrefab;
     public Transform Light;
     public UdpHandler UdpHandler;
+    public PerformanceHandler PerformanceHandler;
     private List<Transform> _monitors = new List<Transform>();
     private TobiiHandler _tobiiHandler;
     private VRPNHandler _vrpnHandler;
@@ -96,6 +97,7 @@ public class ConfigHandler : MonoBehaviour
         cam.Light = Light;
         cam.eyes=new List<int>() {0, 1}.Select(a => _head.GetChild(a)).ToArray();
         cam.udpHandler = UdpHandler;
+        PerformanceHandler.camera = cam;
     }
     
 

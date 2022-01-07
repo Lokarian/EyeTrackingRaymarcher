@@ -34,7 +34,7 @@ public class CameraHandler : MonoBehaviour
     [Range(-1.0f, 1.0f)] public float X = -1.0f;
     [Range(-1.0f, 1.0f)] public float Y = -1.0f;
     [Range(-1.0f, 1.0f)] public float Z = -1.0f;
-    [Range(0.0f, 1.0f)] public float Resolution = 1.0f;
+    [Range(0.0f, 4.0f)] public float Resolution = 1.0f;
     
     //shader ids
     private static readonly int _textureOutId = Shader.PropertyToID("textureOut");
@@ -103,14 +103,8 @@ public class CameraHandler : MonoBehaviour
     private void Render(RenderTexture destination)
     {
         updateRenderTexture();
-        if (stereoType == StereoType.NO3D)
-        {
-            shader.SetMatrix(_viewFrustrumId, _cam.cameraToWorldMatrix);
-        }
-        else
-        {
-            shader.SetMatrix(_viewFrustrumId, cameraMatrix());
-        }
+        
+        shader.SetMatrix(_viewFrustrumId, cameraMatrix());
         shader.SetFloats(_leftEyePositionId, VectorToArray(eyes[0].position));
         shader.SetFloats(_rightEyePositionId, VectorToArray(eyes[1].position));
         shader.SetFloat(_circleSizeId, CircleSize);

@@ -335,7 +335,7 @@ float4 CastRay(float3 origin, float3 direction)
                 colorOut = AddColorToHalfOfRest(colorOut, color);
                 if (++reflections > maxReflections)
                 {
-                    return colorOut;
+                    return float4(colorOut.rgb,iterations);
                 }
                 marchPosition = hitPoint;
                 marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
@@ -354,7 +354,7 @@ float4 CastRay(float3 origin, float3 direction)
                 colorOut = AddColorToHalfOfRest(colorOut, color);
                 if (++reflections > maxReflections)
                 {
-                    return colorOut;
+                    return float4(colorOut.rgb,iterations);
                 }
                 marchPosition = hitPoint;
                 marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
@@ -373,7 +373,7 @@ float4 CastRay(float3 origin, float3 direction)
         }
         if (length(marchPosition) > 1000.0f)
         {
-            return AddColorToHalfOfRest(colorOut, sampleSkybox(marchDirection));
+            return float4(AddColorToHalfOfRest(colorOut, sampleSkybox(marchDirection)).rgb,iterations);
         }
         iterations++;
     }
@@ -490,28 +490,14 @@ void LeftEyeOnly(uint3 id : SV_DispatchThreadID)
 [numthreads(8, 4, 1)]
 void No3d(uint3 id : SV_DispatchThreadID)
 {
-    /*uint2 pixelCoordinate = id.xy;
+    uint2 pixelCoordinate = id.xy;
     float2 realtiveCoordinate = float2(pixelCoordinate.x / (float) resolution.x,
                                        pixelCoordinate.y / (float) resolution.y);
     float3 directionRay = calculateViewRay(realtiveCoordinate, 0.0f);
-    float4 color = CastRay(leftEyePosition, directionRay);
+    float4 color = lerp(float4(0,0,0,0),float4(1,1,1,0),CastRay(leftEyePosition, directionRay).a/maxIterations);
     if(all(pixelCoordinate<resolution))
     {
         textureOut[id.xy] = color;        
-    }*/
-    uint2 pixelCoordinate = id.xy;
-    float2 uv = float2(pixelCoordinate.x / (float) resolution.x,
-                                       pixelCoordinate.y / (float) resolution.y);
-    float2 range=float2(-10,10);
-    float xValue= (uv.x-0.5f)*20.0f;
-    float yValue=fmod(xValue,2.0f);
-    
-    float isPixel=(yValue-range.x)/(range.y-range.x);
-    if(uv.y>isPixel){
-        textureOut[id.xy] = float4(1,1,1,1.0);
-    }
-    else{
-        textureOut[id.xy] = float4(0,0,0,0.0);
     }
 }
 
