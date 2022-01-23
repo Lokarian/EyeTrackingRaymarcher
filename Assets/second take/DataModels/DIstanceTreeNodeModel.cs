@@ -89,4 +89,5 @@ public enum DistanceTreeNodeType
     _CUBE = 8,
     _REPETITION = 9,
     _UNDOTRANSFORM =10,
+    _SPLINE =11,
 }

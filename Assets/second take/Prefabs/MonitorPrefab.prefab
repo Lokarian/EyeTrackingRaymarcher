@@ -408,11 +408,11 @@ MonoBehaviour:
   CircleSize: 2
   MarchEpsilon: 0.001
   MaxIterations: 6034
-  MaxReflections: 1
+  MaxReflections: 0
   Shininess: 0.598
   AmbientFactor: 0.2
   ShadowStartDistance: 0.128
-  SoftShadowFactor: 64
+  SoftShadowFactor: 100
   LightColor: {r: 1, g: 1, b: 1, a: 1}
   Light: {fileID: 0}
   udpHandler: {fileID: 0}
