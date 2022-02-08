@@ -9,6 +9,7 @@ using Debug = UnityEngine.Debug;
 public class PerformanceHandler : MonoBehaviour
 {
     [Range(1, 200)] public int TargetFPS=60;
+    public bool CorrectFPS=true;
     public int FrameWindowsSize = 100;
     public CameraHandler camera;
     private int[] timeStamps;
@@ -42,6 +43,11 @@ public class PerformanceHandler : MonoBehaviour
         var fps= 1/(timeStamps.Average()/1000.0f);
         Debug.Log($"Fps: {fps}");
         var performanceFactor = fps / TargetFPS;
+        if (!CorrectFPS)
+        {
+            Debug.Log($"Frametimes: {string.Join(",", timeStamps)}");
+            return;
+        }
         if (performanceFactor < 1)
         {
             camera.Resolution*= (float)Math.Sqrt(performanceFactor);

@@ -95,7 +95,7 @@ float logicalAND(float d1, float d2)
 
 LinearStackElement logicalANDWithColor(LinearStackElement c1, LinearStackElement c2)
 {
-    return makeLinearStackElement(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color,c2.color));
+    return makeLinearStackElement(logicalAND(c1.distance, c2.distance), c1.color);
 }
 
 
@@ -155,10 +155,14 @@ LinearStackElement logicalsmoothDifferenceWithColor(LinearStackElement c1, Linea
 {
     return makeLinearStackElement(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color, c2.color));
 }
+LinearStackElement logicalsmoothIntersecsWithColor(LinearStackElement c1, LinearStackElement c2, float k)
+{
+    return makeLinearStackElement(logicalAND(c1.distance, c2.distance), interpolateColorsWithAlpha(c1.color, c2.color));
+}
 LinearStackElement logicalsmoothUnionWithColor(LinearStackElement c1, LinearStackElement c2, float k)
 {
     float2 smoothMin = smoothUnionSDF(c1.distance,c2.distance,k);
-    return makeLinearStackElement(smoothMin.x, interpolateColorsWithAlpha(float4(c1.color.rgb,smoothMin.y), float4(c2.color.rgb,(1-smoothMin.y))));
+    return makeLinearStackElement(smoothMin.x,  lerp(c1.color,c2.color,smoothMin.y));
 }
 
 float getDistanceCube(float3 p,float3 s)
@@ -269,7 +273,7 @@ LinearStackElement getDistanceFromTreeCompact(float3 position)
             case 5: //_SMOOTHINTERSECTS
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = makeLinearStackElement(smoothIntersectSDF(c1.distance,c2.distance,element.a.x),float4(1,0,0,1));
+                stackContext[stackPointer++] = logicalsmoothIntersecsWithColor(c1, c2, element.a.x);
                 break;
             case 6: //_SMOOTHUNION
                 c1 = stackContext[--stackPointer];
@@ -279,7 +283,7 @@ LinearStackElement getDistanceFromTreeCompact(float3 position)
             case 7: //_SMOOTHDIFFERENCE
                 c1 = stackContext[--stackPointer];
                 c2 = stackContext[--stackPointer];
-                stackContext[stackPointer++] = makeLinearStackElement(smoothDifferenceSDF(c1.distance, c2.distance, element.a.x), float4(1.0f, 0.0f, 0.0f, 1.0f));
+                stackContext[stackPointer++] = logicalsmoothDifferenceWithColor(c1, c2, element.a.x);
                 break;
             case 8: //_CUBE
                 stackContext[stackPointer++] = makeLinearStackElement(getDistanceCube(mul(element.translation, float4(positionStack[positionPointer], 1.0)).xyz,element.a)/element.b.x,element.color);
@@ -302,32 +306,32 @@ LinearStackElement getDistanceFromTreeCompact(float3 position)
     }
     return stackContext[stackPointer - 1];
 }
-float getDistanceStatic(float3 p){
-    return logicalOR(
-        getDistanceCube(mul(float4x4(1,0,0,0 ,0,1,0,0 ,0,0,1,1.1 ,0,0,0,0),float4(p,1.0)),float3(25,1,25)),
-        logicalOR(
-            getDistanceCirlce(mul(float4x4(1,0,0,0.98f ,0,1,0,-0.6 ,0,0,1,-0.52 ,0,0,0,0),float4(p,1.0))),
-            smoothUnionSDF(
-                getDistanceTorus(mul(float4x4(1,0,0,-0.57f ,0,1,0,-1.08 ,0,0,1,0.58 ,0,0,0,0),float4(p,1.0)),float2(0.5,0.5f)),
-                logicalAND(
-                    getDistanceCube(mul(float4x4(1,0,0,-1.77 ,0,1,0,-0.86 ,0,0,1,0.83 ,0,0,0,0),float4(p,1.0)),float3(0.5f,0.5f,0.5f)),
-                    logicalNOT(
-                        getDistanceCirlce(mul(float4x4(1,0,0,-1.1 ,0,1,0,1 ,0,0,1,2 ,0,0,0,0),float4(p,1.0)))
+LinearStackElement getDistanceStatic(float3 p){
+    return logicalORWithColor(
+        makeLinearStackElement(getDistanceCube(mul(float4x4(1,0,0,0 ,0,1,0,1 ,0,0,1,0 ,0,0,0,0),float4(p,1.0)),float3(25,0.1,25)),float4(1,1,1,0.8)),
+        logicalORWithColor(
+            makeLinearStackElement(getDistanceCirlce(mul(float4x4(1,0,0,1 ,0,1,0,0 ,0,0,1,-1 ,0,0,0,0),float4(p,1.0))),float4(1,0.5,0,0.5)),
+            logicalsmoothUnionWithColor(
+                makeLinearStackElement(getDistanceTorus(mul(float4x4(1,0,0,-0.75 ,0,0.70711,-0.70711,0.70711 ,0,0.70711,0.70711,-0.70711 ,0,0,0,0),float4(p,1.0)),float2(0.5,0.25f)),float4(0,0.9,0.1,0.5)),
+                logicalANDWithColor(
+                    makeLinearStackElement(getDistanceCube(mul(float4x4(1,0,0,-1.75 ,0,1,0,0 ,0,0,1,-1 ,0,0,0,0),float4(p,1.0)),float3(0.5f,0.5f,0.5f)),float4(1,0,0,0.5)),
+                    logicalNOTWithColor(
+                        makeLinearStackElement(getDistanceCirlce(mul(float4x4(1,0,0,-1.75 ,0,1,0,0.5 ,0,0,1,-0.75 ,0,0,0,0),float4(p,1.0))),float4(0,0,1,0.5))
                     )
                 ),
-                0.15f
+                0.25f
             )
         )
         );
 }
 float getDistance(float3 p)
 {
-    //return getDistanceStatic(p);
+    //return getDistanceStatic(p).distance;
     return getDistanceFromTreeCompact(p).distance;
 }
 LinearStackElement getDistanceAndMaterialColor(float3 p)
 {
-    //return makeLinearStackElement(getDistanceStatic(p),float4(1,0,0,1));
+    //return getDistanceStatic(p);
     return getDistanceFromTreeCompact(p);
 }
 
@@ -357,7 +361,7 @@ float3 sampleSkybox(float3 direction)
     return _Skybox.SampleLevel(sampler_Skybox, float2(phi, theta), 0);
 }
 
-float3 calculatePhongColor(float3 materialColor,float3 surfaceNormal,float3 viewDirection,float3 toLightDirection,float illumination,float shininess)
+float3 calculatePhongColor(float3 materialColor,float3 surfaceNormal,float3 viewDirection,float3 toLightDirection,float illumination)
 {
     float3 colorOut = materialColor.rgb * ambientFactor; //ambient
     colorOut += materialColor.rgb * lightColor * max(0.0f, dot(surfaceNormal, toLightDirection)) * illumination; //diffuse
@@ -366,8 +370,8 @@ float3 calculatePhongColor(float3 materialColor,float3 surfaceNormal,float3 view
     return colorOut;
 }
 
-float4 AddColorWithReflectiveness(float4 colorIn, float3 colorToAdd){
-    float ownPortion = (1.0f - colorIn.a) * (1.0f - shininess);
+float4 AddColorWithReflectiveness(float4 colorIn, float3 colorToAdd,float reflectivness){
+    float ownPortion = (1.0f - colorIn.a) * (1.0f - reflectivness);
     return float4(colorIn.rgb+colorToAdd*ownPortion,colorIn.a+ownPortion);
 }
 
@@ -404,9 +408,9 @@ float4 CastRay(float3 origin, float3 direction)
             }
             else
             {
-                const float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, 0.0, shininess);
-                colorOut = AddColorWithReflectiveness(colorOut, color);
-                if (++reflections > maxReflections)
+                const float3 color = calculatePhongColor(hitContext.color, hitSurfaceNormal, hitDirection, marchDirection, 0.0);
+                colorOut = AddColorWithReflectiveness(colorOut, color,hitContext.color.a);
+                if (++reflections > maxReflections||hitContext.color.a<0.001f)
                 {
                     return float4(colorOut.rgb,iterations);
                 }
@@ -415,7 +419,6 @@ float4 CastRay(float3 origin, float3 direction)
                 distance = 0;
                 marchState = 0;
             }
-            
         }     
         else if (marchState == 1)
         {
@@ -423,9 +426,9 @@ float4 CastRay(float3 origin, float3 direction)
             penumbraFactor = min(penumbraFactor, softShadowFactor * distance / distanceFromHitPoint);
             if (length(lightPosition - hitPoint) < distanceFromHitPoint)
             {
-                const float3 color = calculatePhongColor(hitContext.color.rgb, hitSurfaceNormal, hitDirection, marchDirection, min(1.0f, penumbraFactor), shininess);
-                colorOut = AddColorWithReflectiveness(colorOut, color);
-                if (++reflections > maxReflections)
+                const float3 color = calculatePhongColor(hitContext.color, hitSurfaceNormal, hitDirection, marchDirection, min(1.0f, penumbraFactor));
+                colorOut = AddColorWithReflectiveness(colorOut, color,hitContext.color.a);
+                if (++reflections > maxReflections||hitContext.color.a<0.001f)
                 {
                     return float4(colorOut.rgb,iterations);
                 }
@@ -446,7 +449,7 @@ float4 CastRay(float3 origin, float3 direction)
         }
         if (length(marchPosition) > 1000.0f)
         {
-            return float4(AddColorWithReflectiveness(colorOut, sampleSkybox(marchDirection)).rgb,iterations);
+            return float4(AddColorWithReflectiveness(colorOut, sampleSkybox(marchDirection),0.0f).rgb,iterations);
         }
         iterations++;
     }
@@ -487,7 +490,7 @@ positionAndColor CastRay2(float3 origin, float3 direction)
         if(context.distance<marchEpsilon)
         {
             float lightLevel=DoLighting(marchPosition);
-            float3 color = calculatePhongColor(context.color.rgb, getSurfaceNormal(marchPosition), direction, lightPosition-marchPosition, lightLevel, shininess);
+            float3 color = calculatePhongColor(context.color, getSurfaceNormal(marchPosition), direction, lightPosition-marchPosition, lightLevel);
             positionAndColor outs;
             outs.color=float4(context.color.rgb,1.0);
             outs.position=marchPosition;
@@ -510,7 +513,7 @@ float4 CastRay2WithReflection(float3 origin, float3 direction,int reflections)
     {
         positionAndColor tes = CastRay2(rayOrig,rayDir);
         return tes.color;
-        colorOut=AddColorWithReflectiveness(colorOut,tes.color);
+        colorOut=AddColorWithReflectiveness(colorOut,tes.color.rgb,tes.color.a);
         rayOrig=tes.position;
         rayDir= reflect(rayDir,getSurfaceNormal(rayOrig));
         

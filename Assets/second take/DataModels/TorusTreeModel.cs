@@ -14,7 +14,7 @@ public class TorusTreeModel : DistanceTreeNodeModel
     }
     public override DistanceTreeLinearModel GetLinearModel()
     {
-        Debug.Log($"ls:{transform.worldToLocalMatrix.lossyScale.x} det:{Math.Pow(transform.worldToLocalMatrix.determinant, (double) 1 / 3)}");
+        Debug.Log($"torus:{transform.worldToLocalMatrix}");
         return new DistanceTreeLinearModel()
         {
             a = new Vector3(radius1, radius2, 0.0f),

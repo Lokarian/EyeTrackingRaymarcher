@@ -405,10 +405,11 @@ MonoBehaviour:
   stereoType: 3
   eyes: []
   skybox: {fileID: 2800000, guid: 00e577746b1884042bf859d30d5ed262, type: 3}
+  TakeScreenshot: 0
   CircleSize: 2
   MarchEpsilon: 0.001
   MaxIterations: 6034
-  MaxReflections: 0
+  MaxReflections: 1
   Shininess: 0.598
   AmbientFactor: 0.2
   ShadowStartDistance: 0.128
