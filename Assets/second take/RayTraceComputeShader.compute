@@ -395,49 +395,16 @@ float4 CastRay(float3 origin, float3 direction)
         float distance = context.distance;
         if (distance < marchEpsilon)
         {
-            if (marchState == 0)
-            {
-                hitPoint = marchPosition;
-                hitDirection = marchDirection;
-                hitContext=context;
-                hitSurfaceNormal = getSurfaceNormal(marchPosition);
-                marchDirection = normalize(lightPosition - marchPosition);
-                marchState = 1;
-                penumbraFactor = 100000000.0f;
-                distance = shadowStartDistance;
-            }
-            else
-            {
-                const float3 color = calculatePhongColor(hitContext.color, hitSurfaceNormal, hitDirection, marchDirection, 0.0);
-                colorOut = AddColorWithReflectiveness(colorOut, color,hitContext.color.a);
-                if (++reflections > maxReflections||hitContext.color.a<0.001f)
+                const float3 hitSurfaceNormal=getSurfaceNormal(marchPosition);
+                const float3 color = calculatePhongColor(context.color, hitSurfaceNormal, marchDirection, lightPosition-marchPosition, 0.1f);
+                colorOut = AddColorWithReflectiveness(colorOut, color,context.color.a);
+                if (++reflections > maxReflections||context.color.a<0.001f)
                 {
                     return float4(colorOut.rgb,iterations);
                 }
-                marchPosition = hitPoint+marchEpsilon*hitSurfaceNormal;
-                marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
-                distance = 0;
-                marchState = 0;
-            }
+                marchDirection = reflect(marchDirection,hitSurfaceNormal);
+            marchPosition +=hitSurfaceNormal*marchEpsilon;
         }     
-        else if (marchState == 1)
-        {
-            const float distanceFromHitPoint = length(marchPosition - hitPoint);
-            penumbraFactor = min(penumbraFactor, softShadowFactor * distance / distanceFromHitPoint);
-            if (length(lightPosition - hitPoint) < distanceFromHitPoint)
-            {
-                const float3 color = calculatePhongColor(hitContext.color, hitSurfaceNormal, hitDirection, marchDirection, min(1.0f, penumbraFactor));
-                colorOut = AddColorWithReflectiveness(colorOut, color,hitContext.color.a);
-                if (++reflections > maxReflections||hitContext.color.a<0.001f)
-                {
-                    return float4(colorOut.rgb,iterations);
-                }
-                marchPosition = hitPoint+marchEpsilon*hitSurfaceNormal;
-                marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
-                distance = 0;
-                marchState = 0;
-            }
-        }
         marchPosition += (marchDirection * distance);
         if (smallestDistance > distance)
         {

@@ -21,7 +21,7 @@ public class CameraHandler : MonoBehaviour
     public Transform[] eyes;
     public Texture2D skybox;
     public bool TakeScreenshot;
-    [Range(0.0f, 1000.0f)] public float CircleSize = 2;
+    [Range(0.0f, 1.0f)] public float CircleSize =0.01f;
     [Range(0.0001f, 0.1f)] public float MarchEpsilon = 0.001f;
     [Range(1, 10000)] public int MaxIterations = 500;
     [Range(0, 5)] public int MaxReflections = 0;
