@@ -396,7 +396,7 @@ float4 CastRay(float3 origin, float3 direction)
         if (distance < marchEpsilon)
         {
                 const float3 hitSurfaceNormal=getSurfaceNormal(marchPosition);
-                const float3 color = calculatePhongColor(context.color, hitSurfaceNormal, marchDirection, lightPosition-marchPosition, 0.1f);
+                const float3 color = calculatePhongColor(context.color, hitSurfaceNormal, marchDirection, normalize(lightPosition-marchPosition), 0.1f);
                 colorOut = AddColorWithReflectiveness(colorOut, color,context.color.a);
                 if (++reflections > maxReflections||context.color.a<0.001f)
                 {
