@@ -393,34 +393,7 @@ float4 CastRay(float3 origin, float3 direction)
     {
         LinearStackElement context = getDistanceAndMaterialColor(marchPosition);
         float distance = context.distance;
-        if (distance < marchEpsilon)
-        {
-            if (marchState == 0)
-            {
-                hitPoint = marchPosition;
-                hitDirection = marchDirection;
-                hitContext=context;
-                hitSurfaceNormal = getSurfaceNormal(marchPosition);
-                marchDirection = normalize(lightPosition - marchPosition);
-                marchState = 1;
-                penumbraFactor = 100000000.0f;
-                distance = shadowStartDistance;
-            }
-            else
-            {
-                const float3 color = calculatePhongColor(hitContext.color, hitSurfaceNormal, hitDirection, marchDirection, 0.0);
-                colorOut = AddColorWithReflectiveness(colorOut, color,hitContext.color.a);
-                if (++reflections > maxReflections||hitContext.color.a<0.001f)
-                {
-                    return float4(colorOut.rgb,iterations);
-                }
-                marchPosition = hitPoint+marchEpsilon*hitSurfaceNormal;
-                marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
-                distance = 0;
-                marchState = 0;
-            }
-        }     
-        else if (marchState == 1)
+        if (marchState == 1)
         {
             const float distanceFromHitPoint = length(marchPosition - hitPoint);
             penumbraFactor = min(penumbraFactor, softShadowFactor * distance / distanceFromHitPoint);
@@ -437,7 +410,31 @@ float4 CastRay(float3 origin, float3 direction)
                 distance = 0;
                 marchState = 0;
             }
+            else if(distance < marchEpsilon)
+            {
+                const float3 color = calculatePhongColor(hitContext.color, hitSurfaceNormal, hitDirection, marchDirection, 0.0);
+                colorOut = AddColorWithReflectiveness(colorOut, color,hitContext.color.a);
+                if (++reflections > maxReflections||hitContext.color.a<0.001f)
+                {
+                    return float4(colorOut.rgb,iterations);
+                }
+                marchPosition = hitPoint+marchEpsilon*hitSurfaceNormal;
+                marchDirection = reflectRay(hitDirection, hitSurfaceNormal);
+                distance = 0;
+                marchState = 0;
+            }
         }
+        else if (distance < marchEpsilon)
+        {
+            hitPoint = marchPosition;
+            hitDirection = marchDirection;
+            hitContext=context;
+            hitSurfaceNormal = getSurfaceNormal(marchPosition);
+            marchDirection = normalize(lightPosition - marchPosition);
+            marchState = 1;
+            penumbraFactor = 100000000.0f;
+            distance = shadowStartDistance;
+        }     
         marchPosition += (marchDirection * distance);
         if (smallestDistance > distance)
         {
